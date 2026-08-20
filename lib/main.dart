@@ -7,6 +7,7 @@ import 'core/theme/app_theme.dart';
 import 'core/theme/theme_provider.dart';
 import 'core/providers/language_provider.dart';
 import 'core/constants/supabase_constants.dart';
+import 'services/deep_link_service.dart';
 
 import 'config/app_routes.dart';
 
@@ -41,6 +42,8 @@ void main() async {
       await Supabase.instance.client.auth.signOut();
     }
   }
+
+  DeepLinkService.checkInitialLink();
 
   runApp(MyApp(initialRoute: initialRoute));
 }

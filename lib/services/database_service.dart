@@ -107,4 +107,33 @@ class DatabaseService {
   Future<void> deleteAllBins() async {
     await _supabase.from('bins').delete().neq('id', '0000'); // Delete all rows
   }
+
+  // --- REDEEM VOUCHER ---
+  Future<void> redeemVoucher({
+    required String userId,
+    required int pointsCost,
+    required String rewardName,
+  }) async {
+    // 1. Get current points
+    final profile = await _supabase
+        .from('users')
+        .select('total_points')
+        .eq('id', userId)
+        .single();
+    
+    int currentPoints = profile['total_points'] ?? 0;
+
+    if (currentPoints < pointsCost) {
+      throw Exception("Insufficient Eco Points. You need $pointsCost pts.");
+    }
+
+    // 2. Deduct points
+    await _supabase.from('users').update({
+      'total_points': currentPoints - pointsCost,
+    }).eq('id', userId);
+
+    // 3. Log the redemption (using disposal_history for now or a new table if preferred)
+    // We'll use a negative value in disposal_history to represent redemption if the schema allows, 
+    // but better to just update points for now to avoid breaking stats.
+  }
 }

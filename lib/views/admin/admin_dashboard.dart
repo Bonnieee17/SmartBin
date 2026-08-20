@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
+import 'dart:html' as html;
 import '../../services/database_service.dart';
 import '../../services/auth_service.dart';
 import '../../core/theme/app_theme.dart';
 import 'widgets/summary_card.dart';
 import 'widgets/waste_chart_placeholder.dart';
 import 'widgets/user_table.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -19,6 +21,32 @@ class _AdminDashboardState extends State<AdminDashboard> {
   final _databaseService = DatabaseService();
   final _authService = AuthService();
   int _selectedIndex = 0;
+
+  final _appUrlController = TextEditingController();
+  final _productionUrlController = TextEditingController();
+  bool _isProductionMode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  void _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _appUrlController.text = prefs.getString('app_url') ?? "http://192.168.137.1:53253";
+      _productionUrlController.text = prefs.getString('production_url') ?? "https://smartbin-2025.web.app";
+      _isProductionMode = prefs.getBool('is_production_mode') ?? false;
+    });
+  }
+
+  void _saveSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('app_url', _appUrlController.text);
+    await prefs.setString('production_url', _productionUrlController.text);
+    await prefs.setBool('is_production_mode', _isProductionMode);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +68,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           // SIDEBAR (Desktop)
           if (!useDrawer)
             SizedBox(
-              width: 280,
+              width: 150,
               child: _buildSidebarContent(),
             ),
 
@@ -61,16 +89,20 @@ class _AdminDashboardState extends State<AdminDashboard> {
           children: [
             const SizedBox(height: 40),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Row(
-                children: [
-                  const Icon(Icons.recycling, color: Colors.white),
-                  const SizedBox(width: 12),
-                  const Text(
-                    "SmartBin",
-                    style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                ],
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.recycling, color: Colors.white),
+                    const SizedBox(width: 12),
+                    const Text(
+                      "SmartBin",
+                      style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 40),
@@ -85,6 +117,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     _buildSidebarItem(4, Icons.emoji_events_outlined, "Badges"),
                     _buildSidebarItem(5, Icons.bar_chart, "Reports"),
                     _buildSidebarItem(6, Icons.delete_outline, "Bin Status"),
+                    _buildSidebarItem(7, Icons.qr_code_2_outlined, "Vouchers"),
+                    _buildSidebarItem(8, Icons.terminal_outlined, "Hardware Sim"),
                   ],
                 ),
               ),
@@ -108,6 +142,400 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
+  Widget _buildVoucherGenerator() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+    
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(isMobile ? 20 : 40),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text("Voucher Generator", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          const Text("Create and display QR codes for printing vouchers.", style: TextStyle(color: Colors.grey)),
+          const SizedBox(height: 40),
+          
+          if (screenWidth > 900)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 1, child: _buildVoucherInputs()),
+                const SizedBox(width: 48),
+                Expanded(flex: 1, child: _buildVoucherDisplay()),
+              ],
+            )
+          else
+            Column(
+              children: [
+                _buildVoucherInputs(),
+                const SizedBox(height: 40),
+                _buildVoucherDisplay(),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  final _voucherNameController = TextEditingController(text: "Printing Credit");
+  final _voucherPointsController = TextEditingController(text: "100");
+  String _qrData = "voucher:Printing Credit:100";
+
+  Widget _buildVoucherInputs() {
+    return Container(
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: Colors.grey.withOpacity(0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text("Voucher Details", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          const SizedBox(height: 24),
+          TextField(
+            controller: _voucherNameController,
+            decoration: const InputDecoration(
+              labelText: "Voucher Name",
+              hintText: "e.g. Printing Credit",
+            ),
+            onChanged: (val) => _updateQr(),
+          ),
+          const SizedBox(height: 20),
+          TextField(
+            controller: _voucherPointsController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: "Points Value",
+              hintText: "Max 1000",
+            ),
+            onChanged: (val) => _updateQr(),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            "Note: 10 Points = ₱1.00 Peso. Maximum 1000 points per voucher.",
+            style: TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _updateQr() {
+    int pts = int.tryParse(_voucherPointsController.text) ?? 0;
+    if (pts > 1000) pts = 1000;
+    
+    final baseUrl = _isProductionMode 
+        ? _productionUrlController.text.trim() 
+        : _appUrlController.text.trim();
+
+    setState(() {
+      _qrData = "$baseUrl/#/home?voucher=${_voucherNameController.text.trim()}&cost=$pts";
+    });
+  }
+
+  Widget _buildVoucherDisplay() {
+    int pts = int.tryParse(_voucherPointsController.text) ?? 0;
+    if (pts > 1000) pts = 1000;
+    final pesos = pts / 10.0;
+
+    return Container(
+      padding: const EdgeInsets.all(40),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryGreen,
+        borderRadius: BorderRadius.circular(32),
+        boxShadow: [
+          BoxShadow(color: AppTheme.primaryGreen.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10)),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: QrImageView(
+              data: _qrData,
+              version: QrVersions.auto,
+              size: 240,
+              gapless: false,
+            ),
+          ),
+          const SizedBox(height: 32),
+          Text(
+            _voucherNameController.text.isEmpty ? "Untitled Voucher" : _voucherNameController.text,
+            style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "VALUE: ₱${pesos.toStringAsFixed(2)}",
+            style: const TextStyle(color: AppTheme.secondarySage, fontSize: 28, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 8),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              _qrData,
+              style: const TextStyle(color: Colors.white38, fontSize: 10),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            "Cost: $pts Eco Points",
+            style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 14),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- HARDWARE SIMULATOR STATE ---
+  String _simQrData = "";
+  String _simStatus = "Waiting for item...";
+  Color _simColor = Colors.grey;
+
+  Widget _buildHardwareSimulator() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(isMobile ? 20 : 40),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text("SmartBin Hardware Simulator", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+          const Text("Use this to mimic the Trashcan's LCD screen.", style: TextStyle(color: Colors.grey)),
+          const SizedBox(height: 40),
+          
+          if (screenWidth > 1100)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 1, 
+                  child: Column(
+                    children: [
+                      _buildAppConfig(),
+                      const SizedBox(height: 24),
+                      _buildSimControls(),
+                    ],
+                  )
+                ),
+                const SizedBox(width: 48),
+                Expanded(flex: 1, child: _buildSimLcd()),
+              ],
+            )
+          else
+            Column(
+              children: [
+                _buildAppConfig(),
+                const SizedBox(height: 24),
+                _buildSimControls(),
+                const SizedBox(height: 40),
+                _buildSimLcd(),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAppConfig() {
+    return Container(
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: Colors.grey.withOpacity(0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text("App Configuration", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              Switch(
+                value: _isProductionMode, 
+                onChanged: (val) {
+                  setState(() => _isProductionMode = val);
+                  _saveSettings();
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _isProductionMode ? "PRODUCTION MODE: Using Public URL" : "TESTING MODE: Using Local IP",
+            style: TextStyle(
+              fontSize: 12, 
+              fontWeight: FontWeight.bold, 
+              color: _isProductionMode ? Colors.blue : Colors.orange
+            ),
+          ),
+          const SizedBox(height: 16),
+          if (!_isProductionMode) ...[
+            const Text(
+              "CRITICAL: Use your computer's IP address for phone testing.",
+              style: TextStyle(fontSize: 13, color: Colors.black54),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _appUrlController,
+              decoration: const InputDecoration(
+                labelText: "Local Base URL",
+                hintText: "http://192.168.x.x:53253",
+              ),
+              onChanged: (_) => _saveSettings(),
+            ),
+          ] else ...[
+            const Text(
+              "Enter your live website address (e.g. Firebase Hosting).",
+              style: TextStyle(fontSize: 13, color: Colors.black54),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _productionUrlController,
+              decoration: const InputDecoration(
+                labelText: "Live Website URL",
+                hintText: "https://your-app.web.app",
+              ),
+              onChanged: (_) => _saveSettings(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSimControls() {
+    return Container(
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: Colors.grey.withOpacity(0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text("Trashcan Action", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          const SizedBox(height: 24),
+          const Text("Drop an item to generate a dynamic QR code for the student to scan:", style: TextStyle(fontSize: 13, color: Colors.black54)),
+          const SizedBox(height: 24),
+          _buildSimBtn("Drop Plastic Bottle", "Plastic Bottle", 10, Icons.local_drink_outlined, Colors.blue),
+          const SizedBox(height: 12),
+          _buildSimBtn("Drop Metal Can", "Metal Can", 15, Icons.inventory_2_outlined, Colors.orange),
+          const SizedBox(height: 12),
+          _buildSimBtn("Drop Paper/Cardboard", "Paper", 5, Icons.description_outlined, Colors.green),
+          const SizedBox(height: 32),
+          OutlinedButton(
+            onPressed: () {
+              setState(() {
+                _simQrData = "";
+                _simStatus = "Waiting for item...";
+                _simColor = Colors.grey;
+              });
+            },
+            child: const Text("Reset LCD"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSimBtn(String label, String type, int pts, IconData icon, Color color) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: () {
+          setState(() {
+            _simStatus = "Item Detected: $type";
+            _simColor = color;
+            
+            final baseUrl = _isProductionMode 
+                ? _productionUrlController.text.trim() 
+                : _appUrlController.text.trim();
+                
+            _simQrData = "$baseUrl/#/home?type=$type&pts=$pts&bin=BIN-001";
+          });
+        },
+        icon: Icon(icon, size: 18),
+        label: Text(label),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color.withOpacity(0.1),
+          foregroundColor: color,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSimLcd() {
+    return Container(
+      padding: const EdgeInsets.all(40),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A1A), // LCD Black
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(color: Colors.grey[800]!, width: 4),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20, offset: const Offset(0, 10)),
+        ],
+      ),
+      child: Column(
+        children: [
+          Text(
+            _simStatus.toUpperCase(),
+            textAlign: TextAlign.center,
+            style: TextStyle(color: _simColor, fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 2),
+          ),
+          const SizedBox(height: 32),
+          if (_simQrData.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: QrImageView(
+                data: _simQrData,
+                version: QrVersions.auto,
+                size: 240,
+              ),
+            )
+          else
+            Container(
+              height: 272,
+              width: 272,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Center(
+                child: Icon(Icons.qr_code_scanner, color: Colors.white24, size: 80),
+              ),
+            ),
+          const SizedBox(height: 32),
+          const Text(
+            "SMARTBIN OS v2.0",
+            style: TextStyle(color: Colors.white24, fontSize: 10, letterSpacing: 1),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            "SCAN TO REDEEM POINTS",
+            style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMainContent() {
     switch (_selectedIndex) {
       case 0:
@@ -118,6 +546,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
         return _buildDisposalsList();
       case 6:
         return _buildBinsMonitoring();
+      case 7:
+        return _buildVoucherGenerator();
+      case 8:
+        return _buildHardwareSimulator();
       default:
         return Center(
           child: Text(
@@ -129,16 +561,24 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildBinsMonitoring() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(40),
+      padding: EdgeInsets.all(isMobile ? 20 : 40),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            spacing: 20,
+            runSpacing: 20,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               const Text("Bin Status Monitoring", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-              Row(
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
                 children: [
                   ElevatedButton.icon(
                     onPressed: () async {
@@ -168,7 +608,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       elevation: 0,
                     ),
                   ),
-                  const SizedBox(width: 12),
                   ElevatedButton.icon(
                     onPressed: () => setState(() {}),
                     icon: const Icon(Icons.refresh, size: 18),
@@ -201,17 +640,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
               return GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 450,
+                gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: screenWidth > 600 ? 450 : screenWidth,
                   mainAxisSpacing: 24,
                   crossAxisSpacing: 24,
-                  childAspectRatio: 1.4,
+                  childAspectRatio: screenWidth > 1200 ? 1.4 : (screenWidth > 600 ? 1.6 : 1.2),
                 ),
                 itemCount: bins.length,
                 itemBuilder: (context, index) {
                   final bin = bins[index];
                   final fillLevel = (bin['fill_level'] ?? 0.0).toDouble();
-                  final normalizedLevel = fillLevel / 100.0;
+                  final normalizedLevel = (fillLevel / 100.0).clamp(0.0, 1.0);
                   
                   Color statusColor = Colors.green;
                   String statusLabel = "HEALTHY";
@@ -224,7 +663,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   }
 
                   return Container(
-                    padding: const EdgeInsets.all(28),
+                    padding: EdgeInsets.all(screenWidth > 600 ? 28 : 20),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(28),
@@ -239,13 +678,24 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(bin['bin_name'] ?? "SmartBin ${index+1}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                                Text(bin['location'] ?? "Main Campus", style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                              ],
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    bin['bin_name'] ?? "SmartBin ${index+1}", 
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: screenWidth > 600 ? 18 : 16),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    bin['location'] ?? "Main Campus", 
+                                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
                             ),
+                            const SizedBox(width: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                               decoration: BoxDecoration(
@@ -282,8 +732,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           children: [
                             Icon(Icons.access_time, size: 14, color: Colors.grey[400]),
                             const SizedBox(width: 6),
-                            Text("Last ping: Just now", style: TextStyle(fontSize: 11, color: Colors.grey[400])),
-                            const Spacer(),
+                            Expanded(
+                              child: Text(
+                                "Last ping: Just now", 
+                                style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
                             if (fillLevel >= 80)
                               const Text("Needs Collection", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 11)),
                           ],
@@ -355,11 +810,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
             }
 
             final screenWidth = MediaQuery.of(context).size.width;
-            final isVeryWide = screenWidth > 1400;
-            final isDesktop = screenWidth > 1100;
+            final isMobile = screenWidth < 600;
 
             return SingleChildScrollView(
-              padding: EdgeInsets.all(screenWidth < 600 ? 20 : 40),
+              padding: EdgeInsets.all(isMobile ? 20 : 40),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -439,10 +893,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
                   // REAL-TIME STATS GRID
                   GridView.count(
-                    crossAxisCount: isVeryWide ? 4 : (isDesktop ? 2 : 1),
+                    crossAxisCount: screenWidth > 1400 ? 4 : (screenWidth > 900 ? 2 : 1),
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    childAspectRatio: isDesktop ? 2.2 : 3.0,
+                    childAspectRatio: screenWidth > 600 ? 2.2 : 3.2,
                     mainAxisSpacing: 24,
                     crossAxisSpacing: 24,
                     children: [
@@ -576,13 +1030,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     "Recent Activity Log",
                     historyData.isEmpty 
                       ? const Padding(padding: EdgeInsets.all(20), child: Text("No records found"))
-                      : SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(minWidth: screenWidth < 1200 ? 800 : 0),
-                            child: UserTable(records: historyData.take(15).toList()),
-                          ),
-                        ),
+                      : UserTable(records: historyData.take(15).toList()),
                   ),
                 ],
               ),
@@ -594,8 +1042,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildUsersList() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(40),
+      padding: EdgeInsets.all(isMobile ? 20 : 40),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -622,24 +1072,22 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 return const Center(child: Padding(padding: EdgeInsets.all(40), child: Text("No student users found.")));
               }
 
-              return Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.grey.withOpacity(0.1)),
-                ),
-                child: DataTable(
-                  columns: const [
-                    DataColumn(label: Text("NAME")),
-                    DataColumn(label: Text("STUDENT ID")),
-                    DataColumn(label: Text("POINTS")),
-                  ],
-                  rows: userList.map((user) => DataRow(cells: [
-                    DataCell(Text(user['full_name'] ?? "Unknown")),
-                    DataCell(Text(user['student_id'] ?? "N/A")),
-                    DataCell(Text("${user['total_points'] ?? 0}")),
-                  ])).toList(),
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minWidth: screenWidth > 600 ? 800 : screenWidth),
+                  child: DataTable(
+                    columns: const [
+                      DataColumn(label: Text("NAME")),
+                      DataColumn(label: Text("STUDENT ID")),
+                      DataColumn(label: Text("POINTS")),
+                    ],
+                    rows: userList.map((user) => DataRow(cells: [
+                      DataCell(Text(user['full_name'] ?? "Unknown")),
+                      DataCell(Text(user['student_id'] ?? "N/A")),
+                      DataCell(Text("${user['total_points'] ?? 0}")),
+                    ])).toList(),
+                  ),
                 ),
               );
             },
@@ -650,8 +1098,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildDisposalsList() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(40),
+      padding: EdgeInsets.all(isMobile ? 20 : 40),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -765,17 +1215,24 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Widget _buildSidebarItem(int index, IconData icon, String title) {
     final isSelected = _selectedIndex == index;
     return ListTile(
-      leading: Icon(icon, color: isSelected ? Colors.white : Colors.white70),
-      title: Text(
-        title,
-        style: TextStyle(
-          color: isSelected ? Colors.white : Colors.white70,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+      leading: Icon(icon, color: isSelected ? Colors.white : Colors.white70, size: 20),
+      title: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Text(
+          title,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.white70,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            fontSize: 13,
+          ),
         ),
       ),
       selected: isSelected,
       onTap: () => setState(() => _selectedIndex = index),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      dense: true,
+      visualDensity: VisualDensity.compact,
     );
   }
 

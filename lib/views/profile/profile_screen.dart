@@ -239,9 +239,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     int rank, 
     List<Map<String, dynamic>> history
   ) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+
     return SafeArea(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(isMobile ? 20 : 32),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -252,41 +255,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   onPressed: () => Navigator.pop(context),
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  "My Profile",
-                  style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                Expanded(
+                  child: Text(
+                    "My Profile",
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: isMobile ? 20 : 24,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 32),
+            SizedBox(height: isMobile ? 24 : 32),
             // 1. HEADER
-            _buildProfileHeader(theme, fullName, studentId, dept, avatarUrl),
-            const Divider(height: 48),
+            _buildProfileHeader(theme, fullName, studentId, dept, avatarUrl, isMobile),
+            Divider(height: isMobile ? 40 : 64),
 
             // 2. REWARD SUMMARY
             _buildSectionTitle(theme, "⭐ Reward Summary"),
-            _buildRewardCard(theme, points, rank, languageProvider),
-            const Divider(height: 48),
+            _buildRewardCard(theme, points, rank, languageProvider, isMobile),
+            Divider(height: isMobile ? 40 : 64),
 
             // 3. RECYCLING STATISTICS
             _buildSectionTitle(theme, "♻ Recycling Statistics"),
             _buildStatsCard(theme, totalRecycled, recyclable, nonBio, languageProvider),
-            const Divider(height: 48),
+            Divider(height: isMobile ? 40 : 64),
 
             // 4. ACHIEVEMENT BADGES
             _buildSectionTitle(theme, "🏅 Achievement Badges"),
             _buildBadgesList(theme, points, languageProvider),
-            const Divider(height: 48),
+            Divider(height: isMobile ? 40 : 64),
 
             // 5. RECENT ACTIVITY
             _buildSectionTitle(theme, "🕒 Recent Activity"),
             _buildActivityList(theme, history.take(3).toList()),
-            const Divider(height: 48),
+            Divider(height: isMobile ? 40 : 64),
 
             // 6. QUICK ACTIONS
             _buildSectionTitle(theme, "⚡ Quick Actions"),
-            _buildQuickActions(theme, languageProvider),
-            const Divider(height: 48),
+            _buildQuickActions(theme, languageProvider, screenWidth),
+            Divider(height: isMobile ? 40 : 64),
 
             // 7. LOGOUT
             _buildLogoutButton(theme),
@@ -305,7 +314,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildProfileHeader(ThemeData theme, String name, String id, String dept, String? avatar) {
+  Widget _buildProfileHeader(ThemeData theme, String name, String id, String dept, String? avatar, bool isMobile) {
     return Row(
       children: [
         GestureDetector(
@@ -313,32 +322,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: Stack(
             children: [
               CircleAvatar(
-                radius: 40,
+                radius: isMobile ? 36 : 48,
                 backgroundColor: theme.colorScheme.secondary.withValues(alpha: 0.5),
                 backgroundImage: avatar != null ? NetworkImage(avatar) : null,
-                child: avatar == null ? Icon(Icons.person, size: 40, color: theme.colorScheme.primary) : null,
+                child: avatar == null ? Icon(Icons.person, size: isMobile ? 36 : 48, color: theme.colorScheme.primary) : null,
               ),
               Positioned(
                 bottom: 0, 
                 right: 0, 
                 child: Container(
                   padding: const EdgeInsets.all(4), 
-                  decoration: BoxDecoration(color: theme.colorScheme.surface, shape: BoxShape.circle), 
-                  child: Icon(Icons.camera_alt, size: 16, color: theme.colorScheme.primary)
+                  decoration: BoxDecoration(color: theme.colorScheme.surface, shape: BoxShape.circle, border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1))), 
+                  child: Icon(Icons.camera_alt, size: isMobile ? 14 : 18, color: theme.colorScheme.primary)
                 )
               ),
               if (_isUpdating) const Positioned.fill(child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
             ],
           ),
         ),
-        const SizedBox(width: 20),
+        SizedBox(width: isMobile ? 16 : 24),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(name, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-              Text("Student ID: $id", style: theme.textTheme.bodyMedium?.copyWith(color: theme.textTheme.bodySmall?.color)),
-              Text("Department: $dept", style: theme.textTheme.bodyMedium?.copyWith(color: theme.textTheme.bodySmall?.color)),
+              Text(
+                name, 
+                style: (isMobile ? theme.textTheme.titleMedium : theme.textTheme.titleLarge)?.copyWith(fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                "Student ID: $id", 
+                style: theme.textTheme.bodyMedium?.copyWith(color: theme.textTheme.bodySmall?.color, fontSize: isMobile ? 12 : 14),
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                "Department: $dept", 
+                style: theme.textTheme.bodyMedium?.copyWith(color: theme.textTheme.bodySmall?.color, fontSize: isMobile ? 12 : 14),
+                overflow: TextOverflow.ellipsis,
+              ),
             ],
           ),
         ),
@@ -346,10 +367,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildRewardCard(ThemeData theme, int points, int rank, LanguageProvider lp) {
+  Widget _buildRewardCard(ThemeData theme, int points, int rank, LanguageProvider lp, bool isMobile) {
     double progress = (points % 1000) / 1000;
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
       decoration: BoxDecoration(color: theme.colorScheme.surface, borderRadius: BorderRadius.circular(24), border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1))),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -357,12 +378,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildSimpleStat(theme, "🏆 ${lp.translate("points")}", points.toString()),
-              _buildSimpleStat(theme, "🏅 ${lp.translate("rank")}", "#$rank"),
+              Expanded(child: _buildSimpleStat(theme, "🏆 ${lp.translate("points")}", points.toString(), isMobile)),
+              Expanded(child: _buildSimpleStat(theme, "🏅 ${lp.translate("rank")}", "#$rank", isMobile)),
             ],
           ),
-          const SizedBox(height: 20),
-          Text("🥇 Badge: ${_getLevelName(points, lp)}", style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold)),
+          SizedBox(height: isMobile ? 16 : 24),
+          Text("🥇 Badge: ${_getLevelName(points, lp)}", style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold, fontSize: isMobile ? 14 : 16)),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -371,8 +392,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   borderRadius: BorderRadius.circular(10),
                   child: LinearProgressIndicator(
                     value: progress, 
-                    minHeight: 12, 
-                    backgroundColor: theme.colorScheme.background, 
+                    minHeight: isMobile ? 10 : 14, 
+                    backgroundColor: theme.colorScheme.surfaceVariant, 
                     valueColor: AlwaysStoppedAnimation(theme.colorScheme.primary)
                   ),
                 ),
@@ -382,21 +403,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
           ),
           const SizedBox(height: 4),
-          Text("Progress to next rank", style: theme.textTheme.bodySmall),
+          Text("Progress to next rank", style: theme.textTheme.bodySmall?.copyWith(fontSize: isMobile ? 10 : 12)),
         ],
       ),
     );
   }
 
-  Widget _buildSimpleStat(ThemeData theme, String label, String value) {
+  Widget _buildSimpleStat(ThemeData theme, String label, String value, bool isMobile) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: theme.textTheme.bodySmall),
-        Text(value, style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
+        Text(label, style: theme.textTheme.bodySmall?.copyWith(fontSize: isMobile ? 10 : 12)),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(value, style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold, fontSize: isMobile ? 24 : 32)),
+        ),
       ],
     );
   }
+
 
   Widget _buildStatsCard(ThemeData theme, int total, int recyclable, int nonBio, LanguageProvider lp) {
     return Container(
@@ -478,14 +503,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildQuickActions(ThemeData theme, LanguageProvider lp) {
+  Widget _buildQuickActions(ThemeData theme, LanguageProvider lp, double screenWidth) {
     return GridView.count(
-      crossAxisCount: 2,
+      crossAxisCount: screenWidth > 600 ? 2 : 1,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       mainAxisSpacing: 12,
       crossAxisSpacing: 12,
-      childAspectRatio: 3,
+      childAspectRatio: screenWidth > 600 ? 3 : 5,
       children: [
         _buildActionBtn(theme, "History", Icons.history, "/history"),
         _buildActionBtn(theme, lp.translate("rewards"), Icons.card_giftcard, "/rewards"),

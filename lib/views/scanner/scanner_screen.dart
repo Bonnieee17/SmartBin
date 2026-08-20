@@ -25,18 +25,65 @@ class _ScannerScreenState extends State<ScannerScreen> {
     }
   }
 
-  Future<void> _processScan(String binId) async {
+  Future<void> _processScan(String code) async {
     setState(() => _isProcessing = true);
 
     try {
       final user = _authService.currentUser;
       if (user == null) return;
 
-      // Fetch available waste types to simulate detection
+      // --- CHECK IF IT'S A VOUCHER SCAN ---
+      if (code.startsWith('voucher:')) {
+        final parts = code.split(':');
+        if (parts.length < 3) throw Exception("Invalid Voucher Format");
+
+        final rewardName = parts[1];
+        final pointsCost = int.tryParse(parts[2]) ?? 0;
+
+        // 1. Enforce 1000-point limit
+        if (pointsCost > 1000) {
+          throw Exception("Voucher limit exceeded. Max 1000 pts per scan.");
+        }
+
+        // 2. Process Redemption
+        await _databaseService.redeemVoucher(
+          userId: user.id,
+          pointsCost: pointsCost,
+          rewardName: rewardName,
+        );
+
+        if (mounted) {
+          _showVoucherDialog(rewardName, pointsCost);
+        }
+        return;
+      }
+
+      // --- CHECK IF IT'S A DYNAMIC DISPOSAL SCAN (FROM BIN LCD) ---
+      if (code.startsWith('disposal:')) {
+        final parts = code.split(':');
+        if (parts.length < 4) throw Exception("Invalid Disposal Format");
+
+        final wasteName = parts[1];
+        final points = int.tryParse(parts[2]) ?? 0;
+        final binId = parts[3];
+
+        await _databaseService.recordDisposal(
+          userId: user.id,
+          binId: binId,
+          wasteType: wasteName,
+          weight: 0.1, // Hardware would provide this, we'll default for now
+          points: points,
+        );
+
+        if (mounted) {
+          _showSuccessDialog(wasteName, points);
+        }
+        return;
+      }
+
+      // --- OTHERWISE, IT'S A LEGACY/STATIC BIN ID SCAN ---
+      final binId = code;
       final wasteTypes = await _databaseService.getWasteTypes();
-      
-      // For demo purposes, we'll pick the first one (or match by ID if binId was a waste ID)
-      // In this case, let's pick "Plastic bottle 500ml" if it exists, otherwise the first one
       final selectedWaste = wasteTypes.firstWhere(
         (w) => w['waste_name'].toString().toLowerCase().contains('500ml'),
         orElse: () => wasteTypes.first,
@@ -59,12 +106,59 @@ class _ScannerScreenState extends State<ScannerScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: ${e.toString()}")),
+          SnackBar(
+            content: Text(e.toString().replaceAll("Exception: ", "")),
+            backgroundColor: Colors.redAccent,
+          ),
         );
       }
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
+  }
+
+  void _showVoucherDialog(String rewardName, int points) {
+    // 10 Points = 1 Peso
+    final double pesos = points / 10.0;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.confirmation_number_outlined, color: Color(0xFFE6AD62), size: 60),
+        title: const Text("Voucher Redeemed!"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(rewardName, style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            Text(
+              "-$points Eco Points",
+              style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w600),
+            ),
+            const Divider(height: 24),
+            Text(
+              "₱${pesos.toStringAsFixed(2)}",
+              style: const TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            const Text("Voucher Value", style: TextStyle(fontSize: 12, color: Colors.grey)),
+          ],
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pop(context);
+            },
+            child: const Text("Awesome"),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showSuccessDialog(String wasteName, int points) {

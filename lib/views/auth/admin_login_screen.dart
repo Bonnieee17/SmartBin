@@ -183,6 +183,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                         const SizedBox(height: 8),
                         TextField(
                           controller: adminIdController,
+                          textInputAction: TextInputAction.next,
+                          onSubmitted: (_) => FocusScope.of(context).nextFocus(),
                           decoration: const InputDecoration(
                             hintText: "Enter Admin ID",
                             prefixIcon: Icon(Icons.badge_outlined),
@@ -195,6 +197,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                         TextField(
                           controller: passwordController,
                           obscureText: _obscurePassword,
+                          textInputAction: TextInputAction.done,
+                          onSubmitted: (_) => _handleAdminLogin(),
                           decoration: InputDecoration(
                             hintText: "Enter admin password",
                             prefixIcon: const Icon(Icons.lock_outline),

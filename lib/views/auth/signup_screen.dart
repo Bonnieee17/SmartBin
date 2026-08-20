@@ -91,35 +91,42 @@ class _SignupScreenState extends State<SignupScreen> {
           if (isDesktop)
             Expanded(
               flex: 1,
-              child: Container(
-                decoration: const BoxDecoration(
-                  color: AppTheme.primaryGreen,
-                  image: DecorationImage(
-                    image: NetworkImage("https://images.unsplash.com/photo-1542601098-38add12601d9?q=80&w=2070&auto=format&fit=crop"),
-                    fit: BoxFit.cover,
-                    opacity: 0.3,
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(60.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(Icons.recycling, size: 80, color: Colors.white),
-                      const SizedBox(height: 32),
-                      const Text(
-                        "Be part of the change",
-                        style: TextStyle(color: Colors.white, fontSize: 48, fontWeight: FontWeight.bold),
+              child: Stack(
+                children: [
+                  Container(
+                    decoration: const BoxDecoration(
+                      color: AppTheme.primaryGreen,
+                      image: DecorationImage(
+                        image: NetworkImage("https://images.unsplash.com/photo-1542601098-38add12601d9?q=80&w=2070&auto=format&fit=crop"),
+                        fit: BoxFit.cover,
+                        opacity: 0.3,
                       ),
-                      const SizedBox(height: 16),
-                      Text(
-                        "Create your account and start your journey towards a cleaner campus. Earn points for every item you recycle.",
-                        style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 18),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+                  Padding(
+                    padding: const EdgeInsets.all(60.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.recycling, size: 80, color: Colors.white),
+                        const SizedBox(height: 32),
+                        const FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            "Be part of the change",
+                            style: TextStyle(color: Colors.white, fontSize: 48, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          "Create your account and start your journey towards a cleaner campus. Earn points for every item you recycle.",
+                          style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 18),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
 
@@ -164,6 +171,8 @@ class _SignupScreenState extends State<SignupScreen> {
                         // FULL NAME
                         TextField(
                           controller: fullNameController,
+                          textInputAction: TextInputAction.next,
+                          onSubmitted: (_) => FocusScope.of(context).nextFocus(),
                           decoration: InputDecoration(
                             labelText: "Full Name",
                             prefixIcon: const Icon(Icons.person_outline),
@@ -177,6 +186,8 @@ class _SignupScreenState extends State<SignupScreen> {
                         // STUDENT ID
                         TextField(
                           controller: studentIdController,
+                          textInputAction: TextInputAction.next,
+                          onSubmitted: (_) => FocusScope.of(context).nextFocus(),
                           decoration: InputDecoration(
                             labelText: "Student ID",
                             prefixIcon: const Icon(Icons.badge_outlined),
@@ -191,6 +202,8 @@ class _SignupScreenState extends State<SignupScreen> {
                         TextField(
                           controller: passwordController,
                           obscureText: _obscurePassword,
+                          textInputAction: TextInputAction.next,
+                          onSubmitted: (_) => FocusScope.of(context).nextFocus(),
                           decoration: InputDecoration(
                             labelText: "Password",
                             prefixIcon: const Icon(Icons.lock_outline),
@@ -211,6 +224,8 @@ class _SignupScreenState extends State<SignupScreen> {
                         TextField(
                           controller: confirmPasswordController,
                           obscureText: _obscureConfirmPassword,
+                          textInputAction: TextInputAction.done,
+                          onSubmitted: (_) => _handleSignup(),
                           decoration: InputDecoration(
                             labelText: "Confirm Password",
                             prefixIcon: const Icon(Icons.lock_reset),

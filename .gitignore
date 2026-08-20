@@ -43,3 +43,10 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Vercel and Web
+.vercel/
+node_modules/
+
+# Local artifacts
+.artifacts/

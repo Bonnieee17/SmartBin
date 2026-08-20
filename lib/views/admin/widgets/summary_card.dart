@@ -52,7 +52,7 @@ class SummaryCard extends StatelessWidget {
               fit: BoxFit.scaleDown,
               child: Text(
                 subtitle!,
-                style: const TextStyle(color: Color(0xFF2E7D32), fontSize: 12, fontWeight: FontWeight.w600),
+                style: const TextStyle(color: Color(0xFF2E7D32), fontSize: 11, fontWeight: FontWeight.w600),
               ),
             ),
           ],

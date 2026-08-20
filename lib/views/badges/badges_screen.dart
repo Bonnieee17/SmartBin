@@ -144,46 +144,64 @@ class _BadgesScreenState extends State<BadgesScreen> {
 
                         return Card(
                           margin: const EdgeInsets.only(bottom: 16),
-                          color: isEarned ? theme.colorScheme.surface : theme.colorScheme.surface.withValues(alpha: 0.5),
+                          elevation: 0,
+                          color: isEarned ? theme.colorScheme.surface : theme.colorScheme.surface.withOpacity(0.5),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            side: BorderSide(color: theme.dividerColor.withOpacity(0.1)),
+                          ),
                           child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: MediaQuery.of(context).size.width < 400 ? 12 : 20, 
+                              vertical: 12,
+                            ),
                             leading: CircleAvatar(
-                              radius: 30,
+                              radius: MediaQuery.of(context).size.width < 400 ? 24 : 30,
                               backgroundColor: isEarned 
-                                  ? theme.colorScheme.primary.withValues(alpha: 0.1) 
-                                  : theme.disabledColor.withValues(alpha: 0.1),
+                                  ? theme.colorScheme.primary.withOpacity(0.1) 
+                                  : theme.disabledColor.withOpacity(0.1),
                               child: Icon(
                                 _getBadgeIcon(badge['badge_icon']),
-                                size: 30,
+                                size: MediaQuery.of(context).size.width < 400 ? 24 : 30,
                                 color: isEarned 
                                     ? theme.colorScheme.primary 
                                     : theme.disabledColor,
                               ),
                             ),
                             title: Text(
-                              "${badge['badge_name']}: $pointsRequired ${languageProvider.translate("points")}",
+                              "${badge['badge_name']}",
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                                 color: isEarned ? null : theme.disabledColor,
+                                fontSize: MediaQuery.of(context).size.width < 400 ? 14 : 16,
                               ),
                             ),
                             subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                Text(
+                                  "$pointsRequired ${languageProvider.translate("points")}",
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isEarned ? theme.colorScheme.primary : theme.disabledColor,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                                 const SizedBox(height: 4),
                                 Text(
                                   badge['description'] ?? "",
                                   style: TextStyle(
                                     color: isEarned ? null : theme.disabledColor,
+                                    fontSize: 12,
                                   ),
                                 ),
                               ],
                             ),
                             trailing: isEarned
-                                ? const Icon(Icons.check_circle, color: Colors.green)
+                                ? const Icon(Icons.check_circle, color: Colors.green, size: 20)
                                 : Text(
                                     "${_userPoints}/${pointsRequired}",
-                                    style: TextStyle(color: theme.disabledColor, fontSize: 12),
+                                    style: TextStyle(color: theme.disabledColor, fontSize: 11),
                                   ),
                           ),
                         );

@@ -85,15 +85,19 @@ class _RewardsScreenState extends State<RewardsScreen> {
                   ),
                   const SizedBox(height: 24),
                   
-                  // BADGES ROW
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _buildBadgeItem(theme, "Beginner", "100 pts", userPoints >= 100),
-                      _buildBadgeItem(theme, "Recycler", "250 pts", userPoints >= 250),
-                      _buildBadgeItem(theme, "Warrior", "500 pts", userPoints >= 500),
-                      _buildBadgeItem(theme, "Guardian", "750 pts", userPoints >= 750),
-                    ],
+                  // BADGES ROW (Adaptive)
+                  Center(
+                    child: Wrap(
+                      spacing: 16,
+                      runSpacing: 16,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        _buildBadgeItem(theme, "Beginner", "100 pts", userPoints >= 100),
+                        _buildBadgeItem(theme, "Recycler", "250 pts", userPoints >= 250),
+                        _buildBadgeItem(theme, "Warrior", "500 pts", userPoints >= 500),
+                        _buildBadgeItem(theme, "Guardian", "750 pts", userPoints >= 750),
+                      ],
+                    ),
                   ),
                   
                   const SizedBox(height: 40),
@@ -187,8 +191,11 @@ class _RewardsScreenState extends State<RewardsScreen> {
   }
 
   Widget _buildRedeemItem(ThemeData theme, String title, String cost, String action, {bool isLocked = false}) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 400;
+
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(isMobile ? 12 : 20),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
@@ -197,29 +204,39 @@ class _RewardsScreenState extends State<RewardsScreen> {
       child: Row(
         children: [
           Container(
-            height: 48,
-            width: 48,
+            height: isMobile ? 40 : 48,
+            width: isMobile ? 40 : 48,
             decoration: BoxDecoration(color: theme.colorScheme.surface, borderRadius: BorderRadius.circular(12)),
-            child: Icon(Icons.inventory_2_outlined, color: isLocked ? theme.disabledColor : theme.colorScheme.primary),
+            child: Icon(Icons.inventory_2_outlined, color: isLocked ? theme.disabledColor : theme.colorScheme.primary, size: isMobile ? 20 : 24),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: isMobile ? 12 : 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold, color: isLocked ? theme.disabledColor : theme.textTheme.bodyLarge?.color)),
-                Text(cost, style: theme.textTheme.bodySmall),
+                Text(
+                  title, 
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.bold, 
+                    color: isLocked ? theme.disabledColor : theme.textTheme.bodyLarge?.color,
+                    fontSize: isMobile ? 13 : 16,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(cost, style: theme.textTheme.bodySmall?.copyWith(fontSize: isMobile ? 10 : 12)),
               ],
             ),
           ),
+          const SizedBox(width: 8),
           OutlinedButton(
             onPressed: isLocked ? null : () {},
             style: OutlinedButton.styleFrom(
+              padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 16, vertical: 8),
               side: BorderSide(color: isLocked ? theme.disabledColor.withValues(alpha: 0.2) : theme.colorScheme.primary),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               foregroundColor: isLocked ? theme.disabledColor : theme.colorScheme.primary,
             ),
-            child: Text(action),
+            child: Text(action, style: TextStyle(fontSize: isMobile ? 11 : 14)),
           ),
         ],
       ),
@@ -227,23 +244,57 @@ class _RewardsScreenState extends State<RewardsScreen> {
   }
 
   Widget _buildLeaderboardItem(ThemeData theme, int rank, String name, String points, String level) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 400;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
-          SizedBox(width: 24, child: Text("$rank", style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold, color: theme.disabledColor))),
-          CircleAvatar(radius: 20, backgroundColor: theme.colorScheme.secondary.withValues(alpha: 0.5)),
-          const SizedBox(width: 16),
+          SizedBox(
+            width: isMobile ? 20 : 24, 
+            child: Text(
+              "$rank", 
+              style: theme.textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.bold, 
+                color: theme.disabledColor,
+                fontSize: isMobile ? 14 : 16,
+              )
+            )
+          ),
+          CircleAvatar(
+            radius: isMobile ? 18 : 20, 
+            backgroundColor: theme.colorScheme.secondary.withOpacity(0.5)
+          ),
+          SizedBox(width: isMobile ? 12 : 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(name, style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold)),
-                Text(level, style: theme.textTheme.bodySmall),
+                Text(
+                  name, 
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    fontSize: isMobile ? 14 : 16,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  level, 
+                  style: theme.textTheme.bodySmall?.copyWith(fontSize: isMobile ? 10 : 12),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
           ),
-          Text(points, style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(width: 8),
+          Text(
+            points, 
+            style: theme.textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              fontSize: isMobile ? 14 : 16,
+            )
+          ),
         ],
       ),
     );

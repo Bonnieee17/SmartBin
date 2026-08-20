@@ -5,8 +5,11 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import '../../services/auth_service.dart';
+import '../../services/database_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/providers/language_provider.dart';
+import 'widgets/claim_points_dialog.dart';
+import '../../services/deep_link_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -32,6 +35,111 @@ class _HomeScreenState extends State<HomeScreen> {
     _authSubscription = _supabase.auth.onAuthStateChange.listen((data) {
       if (mounted) setState(() {});
     });
+
+    // Listen for incoming claim links while the app is already open
+    DeepLinkService.onLinkDetected.listen((data) {
+      if (mounted) {
+        if (data.points != null && data.type != null && data.binId != null) {
+          _showClaimDialog(data.points!, data.type!, data.binId!);
+        } else if (data.voucher != null && data.cost != null) {
+          _showVoucherRedemptionDialog(data.voucher!, data.cost!);
+        }
+      }
+    });
+
+    // Check if there was a pending claim from app startup (e.g. user was logged out)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final pending = DeepLinkService.pendingClaim;
+      if (pending != null && mounted) {
+        if (pending.points != null && pending.type != null && pending.binId != null) {
+          _showClaimDialog(pending.points!, pending.type!, pending.binId!);
+        } else if (pending.voucher != null && pending.cost != null) {
+          _showVoucherRedemptionDialog(pending.voucher!, pending.cost!);
+        }
+        DeepLinkService.clearPendingClaim();
+      }
+    });
+  }
+
+  void _showVoucherRedemptionDialog(String name, int cost) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        title: const Text("Redeem Voucher?"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.confirmation_number_outlined, size: 64, color: AppTheme.primaryGreen),
+            const SizedBox(height: 24),
+            Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            const SizedBox(height: 8),
+            Text("This will deduct $cost points from your account.", textAlign: TextAlign.center),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+          FilledButton(
+            onPressed: () async {
+              try {
+                final user = _authService.currentUser;
+                if (user != null) {
+                  await _supabase.rpc('redeem_points', params: {'user_id': user.id, 'amount': cost});
+                  // If RPC not setup, we use the fallback method in DatabaseService
+                  // For now, let's assume we use the client-side logic we built in DatabaseService
+                  final databaseService = DatabaseService();
+                  await databaseService.redeemVoucher(userId: user.id, pointsCost: cost, rewardName: name);
+                  
+                  if (mounted) {
+                    Navigator.pop(context);
+                    _showVoucherSuccess(name, cost);
+                  }
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+                  Navigator.pop(context);
+                }
+              }
+            },
+            child: const Text("REDEEM"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showVoucherSuccess(String name, int points) {
+    final pesos = points / 10.0;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.check_circle, color: Colors.green, size: 60),
+        title: const Text("Success!"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text("Voucher: $name"),
+            const SizedBox(height: 8),
+            Text("₱${pesos.toStringAsFixed(2)} Redeemed", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+          ],
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("Close"))],
+      ),
+    );
+  }
+
+  void _showClaimDialog(int points, String type, String binId) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => ClaimPointsDialog(
+        points: points,
+        wasteType: type,
+        binId: binId,
+      ),
+    );
   }
 
   void _setupStreams() {
@@ -400,50 +508,61 @@ class _HomeScreenState extends State<HomeScreen> {
 
 
   Widget _buildLevelCard(ThemeData theme, String levelName, int points, int nextPoints, LanguageProvider lp) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+
     return Container(
-      padding: const EdgeInsets.all(28),
+      padding: EdgeInsets.all(isMobile ? 20 : 28),
       decoration: BoxDecoration(
         color: theme.colorScheme.primary,
         borderRadius: BorderRadius.circular(32),
-        boxShadow: [BoxShadow(color: theme.colorScheme.primary.withValues(alpha: 0.2), blurRadius: 20, offset: const Offset(0, 10))],
+        boxShadow: [BoxShadow(color: theme.colorScheme.primary.withOpacity(0.2), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(isMobile ? 12 : 16),
             decoration: BoxDecoration(
-              color: theme.colorScheme.onPrimary.withValues(alpha: 0.2),
+              color: theme.colorScheme.onPrimary.withOpacity(0.2),
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.eco, color: theme.colorScheme.onPrimary, size: 36),
+            child: Icon(Icons.eco, color: theme.colorScheme.onPrimary, size: isMobile ? 28 : 36),
           ),
-          const SizedBox(width: 24),
+          SizedBox(width: isMobile ? 16 : 24),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   levelName,
-                  style: TextStyle(color: theme.colorScheme.onPrimary, fontSize: 22, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: theme.colorScheme.onPrimary, 
+                    fontSize: isMobile ? 18 : 22, 
+                    fontWeight: FontWeight.bold
+                  ),
                 ),
                 if (points < 1500)
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(10),
                         child: LinearProgressIndicator(
-                          value: points / nextPoints,
-                          backgroundColor: theme.colorScheme.onPrimary.withValues(alpha: 0.1),
+                          value: (points / nextPoints).clamp(0.0, 1.0),
+                          backgroundColor: theme.colorScheme.onPrimary.withOpacity(0.1),
                           valueColor: AlwaysStoppedAnimation(theme.colorScheme.onPrimary),
                           minHeight: 8,
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       Text(
                         "${nextPoints - points} ${lp.translate("pts_to_next")}",
-                        style: TextStyle(color: theme.colorScheme.onPrimary.withValues(alpha: 0.8), fontSize: 14, fontWeight: FontWeight.w500),
+                        style: TextStyle(
+                          color: theme.colorScheme.onPrimary.withOpacity(0.8), 
+                          fontSize: isMobile ? 12 : 14, 
+                          fontWeight: FontWeight.w500
+                        ),
                       ),
                     ],
                   ),
@@ -527,9 +646,15 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(value, style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(value, style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+          ),
           const SizedBox(height: 4),
-          Text(label, style: theme.textTheme.labelSmall?.copyWith(color: theme.textTheme.bodySmall?.color, fontWeight: FontWeight.w600)),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(label, style: theme.textTheme.labelSmall?.copyWith(color: theme.textTheme.bodySmall?.color, fontWeight: FontWeight.w600)),
+          ),
         ],
       ),
     );
