@@ -1,6 +1,6 @@
 class AppConstants {
   // Your permanent Vercel URL
-  static const String baseUrl = "https://smart-dyibhxdbd-bonalynjane17-9373s-projects.vercel.app";
+  static const String baseUrl = "https://smartbin-rho.vercel.app";
   
   // Specific endpoints
   static const String downloadPage = "$baseUrl/download";
