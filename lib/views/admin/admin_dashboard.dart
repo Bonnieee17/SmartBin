@@ -448,7 +448,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
     setState(() {
       _qrData =
-      "$baseUrl/#/home?voucher=${Uri.encodeComponent(_voucherNameController.text.trim())}&cost=$pts";
+      "${AppConstants.claimPage}?voucher=${Uri.encodeComponent(_voucherNameController.text.trim())}&cost=$pts";
     });
   }
 
