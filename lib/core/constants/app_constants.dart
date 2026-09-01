@@ -4,6 +4,6 @@ class AppConstants {
   
   // Specific endpoints
   static const String downloadPage = "$baseUrl/download";
-  static const String claimPage = "$baseUrl/claim/index.html";
+  static const String claimPage = "$baseUrl/claim";
   static const String apkDownload = "$baseUrl/app-release.apk";
 }

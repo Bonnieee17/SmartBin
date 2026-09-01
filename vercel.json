@@ -3,6 +3,14 @@
   "outputDirectory": "build/web",
   "rewrites": [
     {
+      "source": "/claim",
+      "destination": "/claim/index.html"
+    },
+    {
+      "source": "/download",
+      "destination": "/download/index.html"
+    },
+    {
       "source": "/((?!\\.well-known/|download/|claim/).*)",
       "destination": "/index.html"
     }
