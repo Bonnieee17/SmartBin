@@ -70,26 +70,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-
     if (!mounted) return;
 
     setState(() {
-      _productionUrlController.text =
-          prefs.getString('production_url') ??
-              AppConstants.baseUrl;
+      _productionUrlController.text = AppConstants.baseUrl;
     });
 
     _updateQr();
   }
 
   Future<void> _saveSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    await prefs.setString(
-      'production_url',
-      _productionUrlController.text.trim(),
-    );
+    // URL is now permanent/hardcoded, no need to save to local storage
   }
 
   @override
