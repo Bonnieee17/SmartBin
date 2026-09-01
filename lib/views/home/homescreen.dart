@@ -148,21 +148,33 @@ class _HomeScreenState extends State<HomeScreen> {
       _userStream = _supabase
           .from('users')
           .stream(primaryKey: ['id'])
-          .eq('id', user.id);
+          .eq('id', user.id)
+          .handleError((e) {
+            print("User Stream Error: $e");
+            // Auto-reconnect after 3 seconds
+            Future.delayed(const Duration(seconds: 3), () {
+              if (mounted) setState(() => _setupStreams());
+            });
+          });
       
       _historyStream = _supabase
           .from('disposal_history')
           .stream(primaryKey: ['id'])
           .eq('user_id', user.id)
-          .order('created_at', ascending: false);
+          .order('created_at', ascending: false)
+          .handleError((e) {
+            print("History Stream Error: $e");
+          });
 
       _allUsersStream = _supabase
           .from('users')
-          .stream(primaryKey: ['id']);
+          .stream(primaryKey: ['id'])
+          .handleError((e) => print("All Users Stream Error: $e"));
 
       _allHistoryStream = _supabase
           .from('disposal_history')
-          .stream(primaryKey: ['id']);
+          .stream(primaryKey: ['id'])
+          .handleError((e) => print("All History Stream Error: $e"));
     }
   }
 
@@ -201,10 +213,16 @@ class _HomeScreenState extends State<HomeScreen> {
       body: StreamBuilder<List<Map<String, dynamic>>>(
         stream: _userStream,
         builder: (context, userSnapshot) {
-          if (userSnapshot.hasError) {
-            return _buildErrorState(theme, languageProvider, "User Data Error");
+          // If there's an error but we're still trying to connect, show a loader instead of a hard error
+          if (userSnapshot.hasError && userSnapshot.connectionState == ConnectionState.active && !userSnapshot.hasData) {
+             return const Center(child: CircularProgressIndicator());
           }
-          if (userSnapshot.connectionState == ConnectionState.waiting) {
+          
+          if (userSnapshot.hasError && !userSnapshot.hasData) {
+            return _buildErrorState(theme, languageProvider, "Syncing Data...");
+          }
+          
+          if (userSnapshot.connectionState == ConnectionState.waiting && !userSnapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
           
