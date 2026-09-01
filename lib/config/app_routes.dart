@@ -9,7 +9,7 @@ import '../views/rewards/reward_screen.dart';
 import '../views/history/history_screen.dart';
 import '../views/profile/profile_screen.dart';
 import '../views/admin/admin_dashboard.dart';
-import '../views/admin/bin_simulator_screen.dart';
+import '../views/admin/bin_lcd_screen.dart';
 import '../views/badges/badges_screen.dart';
 import '../views/settings/settings_screen.dart';
 import '../views/home/notifications_screen.dart';
@@ -45,6 +45,6 @@ class AppRoutes {
     settings: (_) => const SettingsScreen(),
     notifications: (_) => const NotificationsScreen(),
     shareApp: (_) => const ShareAppScreen(),
-    binSimulator: (_) => const BinSimulatorScreen(),
+    binSimulator: (_) => const BinLcdScreen(),
   };
 }

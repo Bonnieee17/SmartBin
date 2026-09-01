@@ -205,11 +205,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       Icons.qr_code_2_outlined,
                       "Vouchers",
                     ),
-                    _buildSidebarItem(
-                      8,
-                      Icons.terminal_outlined,
-                      "Hardware Sim",
-                    ),
                   ],
                 ),
               ),
@@ -276,9 +271,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
       case 7:
         return _buildVoucherGenerator();
-
-      case 8:
-        return _buildHardwareSimulator();
 
       default:
         return Center(
