@@ -3,7 +3,7 @@
   "outputDirectory": "build/web",
   "rewrites": [
     {
-      "source": "/((?!.*\\.).*)",
+      "source": "/((?!\\.well-known/|download/|claim/).*)",
       "destination": "/index.html"
     }
   ]

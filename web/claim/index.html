@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartBin - Install Required</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+
+        /* Full Background Logo */
+        .background-logo {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            max-width: 500px;
+            opacity: 0.1;
+            z-index: -1;
+            filter: grayscale(100%);
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            padding: 20px;
+            background-color: rgba(245, 249, 245, 0.9);
+            text-align: center;
+        }
+
+        .logo-main {
+            width: 120px;
+            height: 120px;
+            border-radius: 30px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            color: #2e7d32;
+            font-size: 28px;
+            margin: 0 0 10px 0;
+            font-weight: 800;
+        }
+
+        p {
+            color: #555;
+            max-width: 300px;
+            line-height: 1.5;
+            margin-bottom: 40px;
+        }
+
+        .install-box {
+            background: white;
+            padding: 30px;
+            border-radius: 24px;
+            box-shadow: 0 15px 35px rgba(46, 125, 50, 0.15);
+            border: 1px solid rgba(46, 125, 50, 0.1);
+            width: 100%;
+            max-width: 340px;
+        }
+
+        .btn-install {
+            display: block;
+            background: #2e7d32;
+            color: white;
+            text-decoration: none;
+            padding: 18px;
+            border-radius: 16px;
+            font-weight: bold;
+            font-size: 18px;
+            letter-spacing: 1px;
+            transition: 0.3s;
+            box-shadow: 0 5px 15px rgba(46, 125, 50, 0.3);
+        }
+
+        .btn-install:active {
+            transform: scale(0.98);
+        }
+
+        .status-text {
+            margin-top: 20px;
+            font-size: 12px;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        /* Steps logic */
+        #open-step {
+            display: none;
+            margin-top: 20px;
+            animation: fadeIn 0.5s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .btn-open {
+            display: block;
+            color: #2e7d32;
+            text-decoration: none;
+            padding: 12px;
+            font-weight: 600;
+            font-size: 14px;
+            border: 2px solid #2e7d32;
+            border-radius: 12px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Large Background Logo -->
+    <img src="/favicon.png" class="background-logo">
+
+    <div class="container">
+        <img src="/favicon.png" class="logo-main">
+
+        <h1>Install SmartBin</h1>
+        <p>You must have the official app installed to claim your points.</p>
+
+        <div class="install-box">
+            <a href="/app-release.apk" class="btn-install" id="download-btn">INSTALL THIS APP</a>
+
+            <div id="open-step">
+                <p style="font-size: 13px; margin: 15px 0;">Download started! Once installed, click below:</p>
+                <a id="open-link" href="#" class="btn-open">OPEN APP & CLAIM</a>
+            </div>
+
+            <div class="status-text" id="status">Action Required</div>
+        </div>
+
+        <div style="margin-top: 50px; font-size: 10px; color: #ccc;">
+            SMARTBIN ECO-SYSTEM v2.0
+        </div>
+    </div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const type = params.get('type') || 'Disposal';
+        const pts = params.get('pts') || '0';
+        const bin = params.get('bin') || 'BIN-001';
+
+        const downloadBtn = document.getElementById('download-btn');
+        const openStep = document.getElementById('open-step');
+        const statusText = document.getElementById('status');
+        const openLink = document.getElementById('open-link');
+
+        // Prepare the deep link
+        const appLink = `smartbin://claim?type=${encodeURIComponent(type)}&pts=${pts}&bin=${bin}`;
+        openLink.href = appLink;
+
+        downloadBtn.addEventListener('click', () => {
+            // Change UI after download starts
+            statusText.innerText = "Installing...";
+            statusText.style.color = "#2e7d32";
+
+            setTimeout(() => {
+                openStep.style.display = "block";
+            }, 1000);
+        });
+
+        // Prevent PWA installation prompt to keep it focused on the APK
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+        });
+    </script>
+</body>
+</html>

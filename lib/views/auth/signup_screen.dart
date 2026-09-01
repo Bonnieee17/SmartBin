@@ -4,7 +4,6 @@ import '../../core/theme/app_theme.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
-
   @override
   State<SignupScreen> createState() => _SignupScreenState();
 }
@@ -224,7 +223,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         TextField(
                           controller: confirmPasswordController,
                           obscureText: _obscureConfirmPassword,
-                          textInputAction: TextInputAction.done,
+                          textInputAction: TextInputAction.go,
                           onSubmitted: (_) => _handleSignup(),
                           decoration: InputDecoration(
                             labelText: "Confirm Password",

@@ -197,7 +197,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                         TextField(
                           controller: passwordController,
                           obscureText: _obscurePassword,
-                          textInputAction: TextInputAction.done,
+                          textInputAction: TextInputAction.go,
                           onSubmitted: (_) => _handleAdminLogin(),
                           decoration: InputDecoration(
                             hintText: "Enter admin password",

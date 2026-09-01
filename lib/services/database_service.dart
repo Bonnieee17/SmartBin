@@ -29,7 +29,16 @@ class DatabaseService {
 
   // --- ADMIN / USERS ---
   Stream<List<Map<String, dynamic>>> getUsersStream() {
-    return _supabase.from('users').stream(primaryKey: ['id']);
+    return _supabase.from('users').stream(primaryKey: ['id']).order('total_points', ascending: false);
+  }
+
+  Future<List<Map<String, dynamic>>> getStudents() async {
+    final response = await _supabase
+        .from('users')
+        .select()
+        .neq('role', 'admin')
+        .order('created_at', ascending: false);
+    return List<Map<String, dynamic>>.from(response);
   }
 
   Stream<List<Map<String, dynamic>>> getRecentActivityStream() {
@@ -101,6 +110,22 @@ class DatabaseService {
         }
       ]);
     }
+  }
+
+  // --- DELETE ALL BINS ---
+  Future<void> updateBinStatus({
+    required String binId,
+    required String status,
+    required String qrData,
+    required String color,
+  }) async {
+    await _supabase.from('bins').upsert({
+      'id': binId,
+      'status': status,
+      'qr_data': qrData,
+      'color': color,
+      'last_update': DateTime.now().toIso8601String(),
+    });
   }
 
   // --- DELETE ALL BINS ---

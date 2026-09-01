@@ -333,7 +333,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.recycling, size: 64, color: AppTheme.primaryGreen),
+            Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: AppTheme.primaryGreen.withOpacity(0.1), width: 2),
+              ),
+              child: ClipOval(
+                child: Image.asset(
+                  'assets/images/logo.png',
+                  height: 100,
+                  width: 100,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.recycling, size: 64, color: AppTheme.primaryGreen),
+                ),
+              ),
+            ),
             const SizedBox(height: 16),
             const Text("SmartBin", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
             const Text("Sustainability Tracker"),
@@ -495,6 +509,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
               // --- ABOUT ---
               _buildSettingsGroup(Icons.info_outline, languageProvider.translate("about"), [
+                _buildSubItem(languageProvider.translate("share_app"), () => Navigator.pushNamed(context, "/share-app")),
                 _buildSubItem(languageProvider.translate("app_version"), () => _showVersionDialog(languageProvider)),
                 _buildSubItem(languageProvider.translate("certifications"), () => _showCertificationsDialog(languageProvider)),
                 _buildSubItem(languageProvider.translate("terms_conditions"), () => _showTermsDialog(languageProvider)),

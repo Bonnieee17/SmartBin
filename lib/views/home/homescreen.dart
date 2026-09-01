@@ -336,13 +336,34 @@ class _HomeScreenState extends State<HomeScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
-                  child: Text(
-                    "${languageProvider.translate("hi")}, ${fullName.split(' ')[0]}",
-                    style: theme.textTheme.headlineLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.primary,
-                      fontSize: screenWidth > 900 ? 44 : 32,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: theme.colorScheme.primary.withOpacity(0.1), width: 2),
+                        ),
+                        child: ClipOval(
+                          child: Image.asset(
+                            'assets/images/logo.png',
+                            height: screenWidth > 900 ? 60 : 40,
+                            width: screenWidth > 900 ? 60 : 40,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => Icon(Icons.recycling, size: screenWidth > 900 ? 40 : 30, color: theme.colorScheme.primary),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        "${languageProvider.translate("hi")}, ${fullName.split(' ')[0]}",
+                        style: theme.textTheme.headlineLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.primary,
+                          fontSize: screenWidth > 900 ? 44 : 32,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 if (screenWidth > 900)

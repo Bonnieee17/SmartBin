@@ -20,27 +20,25 @@
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="A new Flutter project.">
 
-  <!-- iOS meta tags & icons -->
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="smart_bin">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
-
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
   <title>smart_bin</title>
-  <link rel="manifest" href="manifest.json">
 </head>
-<body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
-
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
+<body style="background-color: #f0f4f0; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0;">
+  <div id="loading" style="text-align: center;">
+    <img src="favicon.png" style="width: 100px; height: 100px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); margin-bottom: 20px;">
+    <div style="color: #2e7d32; font-family: sans-serif; font-weight: bold; letter-spacing: 2px;">SMARTBIN LOADING...</div>
+  </div>
   <script src="flutter_bootstrap.js" async></script>
+  <script>
+    window.addEventListener('load', function(ev) {
+      // Remove loading indicator once Flutter is ready
+      var loading = document.getElementById('loading');
+      if (loading) {
+        // Flutter will cover this up automatically, but we can hide it for safety
+      }
+    });
+  </script>
 </body>
 </html>

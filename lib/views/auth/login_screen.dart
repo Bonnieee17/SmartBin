@@ -93,7 +93,17 @@ class _LoginScreenState extends State<LoginScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.recycling, size: 80, color: Colors.white),
+                        // Left side Logo (Desktop)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(24),
+                          child: Image.asset(
+                            'assets/images/logo.png',
+                            height: 100,
+                            width: 100,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => const Icon(Icons.recycling, size: 80, color: Colors.white),
+                          ),
+                        ),
                         const SizedBox(height: 32),
                         const FittedBox(
                           fit: BoxFit.scaleDown,
@@ -133,15 +143,24 @@ class _LoginScreenState extends State<LoginScreen> {
                             child: GestureDetector(
                               onLongPress: () => Navigator.pushNamed(context, "/admin-login"),
                               child: Container(
-                                padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.secondarySage.withValues(alpha: 0.5),
                                   shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.1),
+                                      blurRadius: 10,
+                                      spreadRadius: 2,
+                                    ),
+                                  ],
                                 ),
-                                child: const Icon(
-                                  Icons.recycling,
-                                  size: 32,
-                                  color: AppTheme.primaryGreen,
+                                child: ClipOval(
+                                  child: Image.asset(
+                                    'assets/images/logo.png',
+                                    height: 80,
+                                    width: 80,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) => const Icon(Icons.recycling, size: 40, color: AppTheme.primaryGreen),
+                                  ),
                                 ),
                               ),
                             ),
@@ -150,7 +169,21 @@ class _LoginScreenState extends State<LoginScreen> {
                           // Secret long press area for desktop on a small invisible widget or the icon
                           GestureDetector(
                             onLongPress: () => Navigator.pushNamed(context, "/admin-login"),
-                            child: const Icon(Icons.recycling, size: 40, color: AppTheme.primaryGreen),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(color: AppTheme.primaryGreen.withOpacity(0.2), width: 2),
+                              ),
+                              child: ClipOval(
+                                child: Image.asset(
+                                  'assets/images/logo.png',
+                                  height: 60,
+                                  width: 60,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.recycling, size: 40, color: AppTheme.primaryGreen),
+                                ),
+                              ),
+                            ),
                           ),
                         const SizedBox(height: 24),
                         const Text(
@@ -190,7 +223,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         TextField(
                           controller: passwordController,
                           obscureText: _obscurePassword,
-                          textInputAction: TextInputAction.done,
+                          textInputAction: TextInputAction.go,
                           onSubmitted: (_) => _handleLogin(),
                           decoration: InputDecoration(
                             hintText: "Enter your password",

@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:html' as html; // Only works for Web, which user is currently using
+import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
 
 class DeepLinkData {
@@ -8,27 +8,41 @@ class DeepLinkData {
   final String? binId;
   final String? voucher;
   final int? cost;
-  
-  DeepLinkData({this.type, this.points, this.binId, this.voucher, this.cost});
-  
-  bool get isDisposal => type != null && points != null && binId != null;
-  bool get isVoucher => voucher != null && cost != null;
+
+  DeepLinkData({
+    this.type,
+    this.points,
+    this.binId,
+    this.voucher,
+    this.cost,
+  });
+
+  bool get isDisposal =>
+      type != null && points != null && binId != null;
+
+  bool get isVoucher =>
+      voucher != null && cost != null;
 }
 
 class DeepLinkService {
-  // Store a pending claim so it can be triggered only after login
   static DeepLinkData? _pendingClaim;
   static DeepLinkData? get pendingClaim => _pendingClaim;
 
-  // Use a StreamController so the Home screen can listen for events while active
   static final _onLinkDetected = StreamController<DeepLinkData>.broadcast();
   static Stream<DeepLinkData> get onLinkDetected => _onLinkDetected.stream;
 
-  static void checkInitialLink() {
-    if (!kIsWeb) return;
+  static final _appLinks = AppLinks();
 
-    final uri = Uri.parse(html.window.location.href);
-    _parseUri(uri);
+  static void init() {
+    // Handle deep links when app is in background/terminated
+    _appLinks.getInitialLink().then((uri) {
+      if (uri != null) _parseUri(uri);
+    });
+
+    // Handle deep links when app is in foreground
+    _appLinks.uriLinkStream.listen((uri) {
+      _parseUri(uri);
+    });
   }
 
   static void clearPendingClaim() {
@@ -36,18 +50,23 @@ class DeepLinkService {
   }
 
   static void _parseUri(Uri uri) {
-    // Expected formats: 
-    // 1. Disposal: ?type=Bottle&pts=10&bin=SB1
-    // 2. Voucher:  ?voucher=Printing&cost=100
+    // Support both https://domain/#/home?type=...
+    // and smartbin://claim?type=...
     
-    final type = uri.queryParameters['type'];
-    final pts = int.tryParse(uri.queryParameters['pts'] ?? '');
-    final bin = uri.queryParameters['bin'];
-    
-    final voucher = uri.queryParameters['voucher'];
-    final cost = int.tryParse(uri.queryParameters['cost'] ?? '');
+    final params = uri.queryParameters.isNotEmpty 
+        ? uri.queryParameters 
+        : (uri.fragment.contains('?') 
+            ? Uri.parse(uri.fragment.substring(uri.fragment.indexOf('?'))).queryParameters 
+            : {});
 
-    if ((type != null && pts != null && bin != null) || (voucher != null && cost != null)) {
+    final type = params['type'];
+    final pts = int.tryParse(params['pts'] ?? '');
+    final bin = params['bin'];
+    final voucher = params['voucher'];
+    final cost = int.tryParse(params['cost'] ?? '');
+
+    if ((type != null && pts != null && bin != null) ||
+        (voucher != null && cost != null)) {
       final data = DeepLinkData(
         type: type,
         points: pts,
@@ -55,12 +74,9 @@ class DeepLinkService {
         voucher: voucher,
         cost: cost,
       );
-      
+
       _pendingClaim = data;
       _onLinkDetected.add(data);
-      
-      // Clear URL parameters so they don't trigger again on refresh
-      html.window.history.replaceState({}, '', html.window.location.pathname);
     }
   }
 }

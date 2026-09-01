@@ -9,9 +9,11 @@ import '../views/rewards/reward_screen.dart';
 import '../views/history/history_screen.dart';
 import '../views/profile/profile_screen.dart';
 import '../views/admin/admin_dashboard.dart';
+import '../views/admin/bin_simulator_screen.dart';
 import '../views/badges/badges_screen.dart';
 import '../views/settings/settings_screen.dart';
 import '../views/home/notifications_screen.dart';
+import '../views/settings/share_app_screen.dart';
 
 class AppRoutes {
   static const login = "/";
@@ -26,6 +28,8 @@ class AppRoutes {
   static const badges = "/badges";
   static const settings = "/settings";
   static const notifications = "/notifications";
+  static const shareApp = "/share-app";
+  static const binSimulator = "/bin-simulator";
 
   static Map<String, WidgetBuilder> routes = {
     login: (_) => const LoginScreen(),
@@ -40,5 +44,7 @@ class AppRoutes {
     badges: (_) => const BadgesScreen(),
     settings: (_) => const SettingsScreen(),
     notifications: (_) => const NotificationsScreen(),
+    shareApp: (_) => const ShareAppScreen(),
+    binSimulator: (_) => const BinSimulatorScreen(),
   };
 }

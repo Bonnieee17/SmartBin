@@ -20,18 +20,47 @@ class AuthService {
     );
 
     if (response.user != null) {
-      // Create a row in the public.users table for this user
-      await _supabase.from('users').insert({
-        'id': response.user!.id,
-        'full_name': metadata['full_name'],
-        'student_id': studentId,
-        'role': metadata['role'] ?? 'user',
-        'total_points': 0,
-        'created_at': DateTime.now().toIso8601String(),
-      });
+      try {
+        // Create a row in the public.users table for this user
+        // We use upsert to avoid conflicts if the user already exists in public.users
+        await _supabase.from('users').upsert({
+          'id': response.user!.id,
+          'full_name': metadata['full_name'] ?? 'Student',
+          'student_id': studentId,
+          'role': metadata['role'] ?? 'user',
+          'total_points': 0,
+          'created_at': DateTime.now().toIso8601String(),
+        });
+      } catch (e) {
+        print("Error creating public user record: $e");
+        // We throw a more descriptive error if RLS or other issues occur
+        throw Exception("Account created, but profile setup failed. Please contact admin to verify your Student ID.");
+      }
     }
     
     return response;
+  }
+
+  // Sync check: Ensure a public.users row exists
+  Future<void> syncProfile() async {
+    final user = currentUser;
+    if (user == null) return;
+
+    try {
+      final existing = await _supabase.from('users').select().eq('id', user.id).maybeSingle();
+      if (existing == null) {
+        await _supabase.from('users').insert({
+          'id': user.id,
+          'full_name': user.userMetadata?['full_name'] ?? 'Student',
+          'student_id': user.userMetadata?['student_id'] ?? 'N/A',
+          'role': user.userMetadata?['role'] ?? 'user',
+          'total_points': 0,
+          'created_at': user.createdAt,
+        });
+      }
+    } catch (e) {
+      print("Error syncing public user record: $e");
+    }
   }
 
   // Sign In using Student ID
@@ -46,17 +75,7 @@ class AuthService {
     );
 
     if (response.user != null) {
-      // Ensure a public.users row exists (in case table was reset)
-      final existing = await _supabase.from('users').select().eq('id', response.user!.id).maybeSingle();
-      if (existing == null) {
-        await _supabase.from('users').insert({
-          'id': response.user!.id,
-          'full_name': response.user!.userMetadata?['full_name'] ?? 'User',
-          'student_id': studentId,
-          'role': response.user!.userMetadata?['role'] ?? 'user',
-          'total_points': 0,
-        });
-      }
+      await syncProfile();
     }
     
     return response;

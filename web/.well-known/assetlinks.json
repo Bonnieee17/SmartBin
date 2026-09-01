@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.example.smart_bin",
+      "sha256_cert_fingerprints": [
+        "E5:94:04:3A:E5:7D:12:23:B2:75:AB:4D:86:5B:C2:01:BA:1E:7D:13:9E:33:F7:7B:4F:19:2D:2A:D8:B7:A9:3E"
+      ]
+    }
+  }
+]

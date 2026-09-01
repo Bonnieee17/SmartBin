@@ -8,6 +8,7 @@ import 'core/theme/theme_provider.dart';
 import 'core/providers/language_provider.dart';
 import 'core/constants/supabase_constants.dart';
 import 'services/deep_link_service.dart';
+import 'services/auth_service.dart';
 
 import 'config/app_routes.dart';
 
@@ -18,6 +19,8 @@ void main() async {
     url: SupabaseConstants.url,
     publishableKey: SupabaseConstants.anonKey,
   );
+
+  final authService = AuthService();
 
   // Check if session exists and Remember Me is active to handle auto-login
   final session = Supabase.instance.client.auth.currentSession;
@@ -31,6 +34,9 @@ void main() async {
     initialRoute = AppRoutes.admin;
   } else if (session != null) {
     if (rememberMe) {
+      // Sync profile in background if auto-logged in
+      authService.syncProfile();
+      
       final userRole = session.user.userMetadata?['role'];
       if (userRole == 'admin') {
         initialRoute = AppRoutes.admin;
@@ -43,7 +49,7 @@ void main() async {
     }
   }
 
-  DeepLinkService.checkInitialLink();
+  DeepLinkService.init();
 
   runApp(MyApp(initialRoute: initialRoute));
 }

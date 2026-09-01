@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>SmartBin - Download</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+
+            display: flex;
+            justify-content: center;
+            align-items: center;
+
+            padding: 20px;
+
+            font-family:
+                Arial,
+                Helvetica,
+                sans-serif;
+
+            background:
+                linear-gradient(
+                    135deg,
+                    #e8f5e9,
+                    #c8e6c9
+                );
+
+            color: #1b5e20;
+        }
+
+        .card {
+            width: 100%;
+            max-width: 430px;
+
+            background: white;
+
+            padding: 40px 30px;
+
+            border-radius: 24px;
+
+            text-align: center;
+
+            box-shadow:
+                0 15px 40px
+                rgba(0, 0, 0, 0.15);
+        }
+
+        .logo {
+            width: 100px;
+            height: 100px;
+
+            margin-bottom: 20px;
+
+            border-radius: 20px;
+        }
+
+        h1 {
+            margin: 0;
+
+            font-size: 32px;
+
+            color: #2e7d32;
+        }
+
+        .subtitle {
+            margin-top: 10px;
+
+            font-size: 16px;
+
+            line-height: 1.6;
+
+            color: #666;
+        }
+
+        .download-button {
+            display: block;
+
+            margin-top: 30px;
+
+            padding: 16px;
+
+            background: #2e7d32;
+
+            color: white;
+
+            text-decoration: none;
+
+            font-size: 17px;
+
+            font-weight: bold;
+
+            border-radius: 12px;
+
+            transition:
+                background 0.2s,
+                transform 0.2s;
+        }
+
+        .download-button:hover {
+            background: #1b5e20;
+
+            transform: translateY(-2px);
+        }
+
+        .note {
+            margin-top: 25px;
+
+            padding: 15px;
+
+            background: #f5f5f5;
+
+            border-radius: 12px;
+
+            font-size: 13px;
+
+            line-height: 1.5;
+
+            color: #666;
+        }
+
+        .footer {
+            margin-top: 25px;
+
+            font-size: 12px;
+
+            color: #999;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="card">
+
+    <h1>SmartBin</h1>
+
+    <p class="subtitle">
+        Smart waste management made simple.
+        Scan, dispose, earn points, and help
+        keep our community clean.
+    </p>
+
+    <a
+            class="download-button"
+            href="/app-release.apk"
+    >
+        📱 Download SmartBin APK
+    </a>
+
+    <div class="note">
+        This application is currently available
+        for Android devices.
+        <br><br>
+        If your phone asks for permission to
+        install the APK, allow installation from
+        your browser or file manager.
+    </div>
+
+    <div class="footer">
+        © 2026 SmartBin
+    </div>
+
+</div>
+
+<script>
+    // BLOCK ALL PWA PROMPTS
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+    });
+</script>
+
+</body>
+</html>
