@@ -526,7 +526,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
               // --- ABOUT ---
               _buildSettingsGroup(Icons.info_outline, languageProvider.translate("about"), [
-                _buildSubItem(languageProvider.translate("share_app"), () => Navigator.pushNamed(context, "/share-app")),
                 _buildSubItem(languageProvider.translate("app_version"), () => _showVersionDialog(languageProvider)),
                 _buildSubItem(languageProvider.translate("certifications"), () => _showCertificationsDialog(languageProvider)),
                 _buildSubItem(languageProvider.translate("terms_conditions"), () => _showTermsDialog(languageProvider)),
