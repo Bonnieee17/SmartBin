@@ -14,6 +14,7 @@ import '../views/badges/badges_screen.dart';
 import '../views/settings/settings_screen.dart';
 import '../views/home/notifications_screen.dart';
 import '../views/settings/share_app_screen.dart';
+import '../views/leaderboard/leaderboard_screen.dart';
 
 class AppRoutes {
   static const login = "/";
@@ -30,6 +31,7 @@ class AppRoutes {
   static const notifications = "/notifications";
   static const shareApp = "/share-app";
   static const binSimulator = "/bin-simulator";
+  static const leaderboard = "/leaderboard";
 
   static Map<String, WidgetBuilder> routes = {
     login: (_) => const LoginScreen(),
@@ -46,5 +48,6 @@ class AppRoutes {
     notifications: (_) => const NotificationsScreen(),
     shareApp: (_) => const ShareAppScreen(),
     binSimulator: (_) => const BinLcdScreen(),
+    leaderboard: (_) => const LeaderboardScreen(),
   };
 }

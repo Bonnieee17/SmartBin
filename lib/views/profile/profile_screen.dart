@@ -9,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import '../../services/auth_service.dart';
+import '../../services/database_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/providers/language_provider.dart';
 
@@ -352,6 +353,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // 2. REWARD SUMMARY
             _buildSectionTitle(theme, "⭐ Reward Summary"),
             _buildRewardCard(theme, points, rank, languageProvider, isMobile),
+            const SizedBox(height: 16),
+            _buildCampusLeaderboardCard(theme, isMobile),
             Divider(height: isMobile ? 40 : 64),
 
             // 3. RECYCLING STATISTICS
@@ -638,6 +641,89 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Widget _buildCampusLeaderboardCard(ThemeData theme, bool isMobile) {
+    final dbService = DatabaseService();
+    return Container(
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.leaderboard, color: AppTheme.primaryGreen, size: 22),
+                  const SizedBox(width: 8),
+                  Text("Campus Leaderboard", style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                ],
+              ),
+              TextButton(
+                onPressed: () => Navigator.pushNamed(context, '/leaderboard'),
+                child: const Text("View All", style: TextStyle(color: AppTheme.primaryGreen, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          StreamBuilder<List<Map<String, dynamic>>>(
+            stream: dbService.getUsersStream(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator(strokeWidth: 2)));
+              }
+              final users = snapshot.data ?? [];
+              if (users.isEmpty) {
+                return const Padding(padding: EdgeInsets.all(16), child: Text("No leaderboard rankings yet.", style: TextStyle(color: Colors.grey)));
+              }
+              final topUsers = users.take(3).toList();
+
+              return Column(
+                children: topUsers.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final user = entry.value;
+                  final rank = index + 1;
+                  final name = user['full_name'] ?? user['student_id'] ?? 'Recycler $rank';
+                  final points = user['total_points'] ?? 0;
+
+                  Color rankColor = Colors.grey;
+                  if (rank == 1) rankColor = const Color(0xFFFFD700);
+                  if (rank == 2) rankColor = const Color(0xFFC0C0C0);
+                  if (rank == 3) rankColor = const Color(0xFFCD7F32);
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryGreen.withValues(alpha: 0.04),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 14,
+                          backgroundColor: rank <= 3 ? rankColor.withValues(alpha: 0.2) : theme.colorScheme.primary.withValues(alpha: 0.1),
+                          child: Text("#$rank", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: rank <= 3 ? rankColor : theme.colorScheme.primary)),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(child: Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13), overflow: TextOverflow.ellipsis)),
+                        Text("$points pts", style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryGreen, fontSize: 13)),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildBadgeCheck(ThemeData theme, String name, bool completed, String assetPath, IconData fallbackIcon, String pointsText, {bool isLocked = false}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -649,19 +735,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               color: isLocked ? theme.disabledColor.withValues(alpha: 0.1) : theme.colorScheme.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: Image.asset(
-                assetPath,
-                width: 24,
-                height: 24,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Icon(
-                  fallbackIcon,
-                  color: isLocked ? theme.disabledColor : theme.colorScheme.primary,
-                  size: 22,
-                ),
-              ),
+            child: Icon(
+              fallbackIcon,
+              color: isLocked ? theme.disabledColor : theme.colorScheme.primary,
+              size: 22,
             ),
           ),
           const SizedBox(width: 14),

@@ -160,21 +160,12 @@ class _BadgesScreenState extends State<BadgesScreen> {
                               backgroundColor: isEarned 
                                   ? theme.colorScheme.primary.withOpacity(0.1) 
                                   : theme.disabledColor.withOpacity(0.1),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(30),
-                                child: Image.asset(
-                                  'assets/images/${badge['badge_icon'] ?? 'eco_beginner.png'}',
-                                  width: MediaQuery.of(context).size.width < 400 ? 32 : 44,
-                                  height: MediaQuery.of(context).size.width < 400 ? 32 : 44,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) => Icon(
-                                    _getBadgeIcon(badge['badge_icon']),
-                                    size: MediaQuery.of(context).size.width < 400 ? 24 : 30,
-                                    color: isEarned 
-                                        ? theme.colorScheme.primary 
-                                        : theme.disabledColor,
-                                  ),
-                                ),
+                              child: Icon(
+                                _getBadgeIcon(badge['badge_icon']),
+                                size: MediaQuery.of(context).size.width < 400 ? 24 : 30,
+                                color: isEarned 
+                                    ? theme.colorScheme.primary 
+                                    : theme.disabledColor,
                               ),
                             ),
                             title: Text(

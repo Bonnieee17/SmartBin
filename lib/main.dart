@@ -8,22 +8,18 @@ import 'core/theme/theme_provider.dart';
 import 'core/providers/language_provider.dart';
 import 'core/constants/supabase_constants.dart';
 import 'services/deep_link_service.dart';
-import 'services/auth_service.dart';
 
 import 'config/app_routes.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Supabase.initialize(
+  // Initialize Supabase in background (non-blocking) for instant app startup
+  Supabase.initialize(
     url: SupabaseConstants.url,
     publishableKey: SupabaseConstants.anonKey,
   );
 
-  final authService = AuthService();
-
-  // Check if session exists and Remember Me is active to handle auto-login
-  final session = Supabase.instance.client.auth.currentSession;
   final prefs = await SharedPreferences.getInstance();
   final rememberMe = prefs.getBool('remember_me') ?? false;
   final isAdminBypass = prefs.getBool('is_admin_bypass') ?? false;
@@ -32,21 +28,6 @@ void main() async {
   
   if (isAdminBypass && rememberMe) {
     initialRoute = AppRoutes.admin;
-  } else if (session != null) {
-    if (rememberMe) {
-      // Sync profile in background if auto-logged in
-      authService.syncProfile();
-      
-      final userRole = session.user.userMetadata?['role'];
-      if (userRole == 'admin') {
-        initialRoute = AppRoutes.admin;
-      } else {
-        initialRoute = AppRoutes.home;
-      }
-    } else {
-      // If there is a session but user didn't want to be remembered, sign them out
-      await Supabase.instance.client.auth.signOut();
-    }
   }
 
   DeepLinkService.init();
