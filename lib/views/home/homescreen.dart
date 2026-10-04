@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -39,29 +38,93 @@ class _HomeScreenState extends State<HomeScreen> {
     // Listen for incoming claim links while the app is already open
     DeepLinkService.onLinkDetected.listen((data) {
       if (mounted) {
-        if (data.points != null && data.type != null && data.binId != null) {
+        if (data.token != null) {
+          _handleClaimByToken(data.token!);
+        } else if (data.points != null && data.type != null && data.binId != null) {
           _showClaimDialog(data.points!, data.type!, data.binId!);
         } else if (data.voucher != null && data.cost != null) {
-          _showVoucherRedemptionDialog(data.voucher!, data.cost!);
+          _showVoucherRedemptionDialog(data.voucher!, cost: data.cost!);
         }
       }
     });
 
-    // Check if there was a pending claim from app startup (e.g. user was logged out)
+    // Check if there was a pending claim from app startup
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final pending = DeepLinkService.pendingClaim;
       if (pending != null && mounted) {
-        if (pending.points != null && pending.type != null && pending.binId != null) {
+        if (pending.token != null) {
+          _handleClaimByToken(pending.token!);
+        } else if (pending.points != null && pending.type != null && pending.binId != null) {
           _showClaimDialog(pending.points!, pending.type!, pending.binId!);
         } else if (pending.voucher != null && pending.cost != null) {
-          _showVoucherRedemptionDialog(pending.voucher!, pending.cost!);
+          _showVoucherRedemptionDialog(pending.voucher!, cost: pending.cost!);
         }
         DeepLinkService.clearPendingClaim();
       }
     });
   }
 
-  void _showVoucherRedemptionDialog(String name, int cost) {
+  void _handleClaimByToken(String token) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final user = _authService.currentUser;
+      if (user == null) throw Exception("Please login to claim rewards.");
+
+      final databaseService = DatabaseService();
+      final session = await databaseService.claimRewardByToken(token, user.id);
+
+      if (mounted) {
+        Navigator.pop(context); // Close loading
+        _showSuccessDialog(
+          session['points'],
+          session['waste_type'],
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Close loading
+        _showErrorDialog(e.toString());
+      }
+    }
+  }
+
+  void _showSuccessDialog(int points, String type) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.check_circle, color: Colors.green, size: 60),
+        title: const Text("Reward Claimed!"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text("You earned points for: $type"),
+            const SizedBox(height: 8),
+            Text("+$points ECO POINTS", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+          ],
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("AWESOME"))],
+      ),
+    );
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.error_outline, color: Colors.red, size: 60),
+        title: const Text("Claim Failed"),
+        content: Text(message),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("CLOSE"))],
+      ),
+    );
+  }
+
+  void _showVoucherRedemptionDialog(String name, {required int cost}) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -85,11 +148,8 @@ class _HomeScreenState extends State<HomeScreen> {
               try {
                 final user = _authService.currentUser;
                 if (user != null) {
-                  await _supabase.rpc('redeem_points', params: {'user_id': user.id, 'amount': cost});
-                  // If RPC not setup, we use the fallback method in DatabaseService
-                  // For now, let's assume we use the client-side logic we built in DatabaseService
                   final databaseService = DatabaseService();
-                  await databaseService.redeemVoucher(userId: user.id, pointsCost: cost, rewardName: name);
+                  await databaseService.generateVoucher(userId: user.id, pointsCost: cost, rewardName: name);
                   
                   if (mounted) {
                     Navigator.pop(context);
@@ -213,54 +273,53 @@ class _HomeScreenState extends State<HomeScreen> {
       body: StreamBuilder<List<Map<String, dynamic>>>(
         stream: _userStream,
         builder: (context, userSnapshot) {
-          // If there's an error but we're still trying to connect, show a loader instead of a hard error
-          if (userSnapshot.hasError && userSnapshot.connectionState == ConnectionState.active && !userSnapshot.hasData) {
-             return const Center(child: CircularProgressIndicator());
-          }
-          
-          if (userSnapshot.hasError && !userSnapshot.hasData) {
-            return _buildErrorState(theme, languageProvider, "Syncing Data...");
-          }
-          
-          if (userSnapshot.connectionState == ConnectionState.waiting && !userSnapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
+          if (userSnapshot.hasError || !userSnapshot.hasData || userSnapshot.data!.isEmpty) {
+            return _buildOfflineOrStreamHome(context, theme, languageProvider, screenWidth);
           }
           
           final userData = userSnapshot.hasData && userSnapshot.data!.isNotEmpty 
               ? userSnapshot.data!.first 
               : null;
           
-          final fullName = _supabase.auth.currentUser?.userMetadata?['full_name'] ?? userData?['full_name'] ?? "User";
-          final points = userData?['total_points'] ?? 0;
-          final levelName = _getLevelName(points, languageProvider);
-          final nextPoints = _getNextLevelPoints(points);
+          return FutureBuilder<String>(
+            future: _authService.getEffectiveUserName(),
+            builder: (context, nameSnapshot) {
+              final rawName = _supabase.auth.currentUser?.userMetadata?['full_name'] ?? userData?['full_name'];
+              final fullName = (rawName != null && rawName.toString().trim().isNotEmpty && rawName != 'User' && rawName != 'Student')
+                  ? rawName.toString().trim()
+                  : (nameSnapshot.data ?? 'Student');
 
-          return StreamBuilder<List<Map<String, dynamic>>>(
-            stream: _historyStream,
-            builder: (context, historySnapshot) {
-              if (historySnapshot.hasError) {
-                // Return main UI with empty history if stream fails
-                return _buildMainHomeUI(context, theme, languageProvider, screenWidth, fullName, points, levelName, nextPoints, [], 0, 0, 0.0);
-              }
-              final List<Map<String, dynamic>> history = historySnapshot.data ?? [];
-              final itemsRecycled = history.length;
-              final List<Map<String, dynamic>> recentActivities = List<Map<String, dynamic>>.from(history.take(5));
+              final points = userData?['total_points'] ?? 0;
+              final levelName = _getLevelName(points, languageProvider);
+              final nextPoints = _getNextLevelPoints(points);
 
               return StreamBuilder<List<Map<String, dynamic>>>(
-                stream: _allUsersStream,
-                builder: (context, allUsersSnapshot) {
-                  return StreamBuilder<List<Map<String, dynamic>>>(
-                    stream: _allHistoryStream,
-                    builder: (context, allHistorySnapshot) {
-                      final totalStudents = (allUsersSnapshot.data ?? []).where((u) => (u['role'] ?? "") != 'admin').length;
-                      double totalWeightKg = 0;
-                      for (var item in (allHistorySnapshot.data ?? [])) {
-                        totalWeightKg += (item['weight_kg'] ?? 0.0);
-                      }
+                stream: _historyStream,
+                builder: (context, historySnapshot) {
+                  if (historySnapshot.hasError) {
+                    return _buildMainHomeUI(context, theme, languageProvider, screenWidth, fullName, points, levelName, nextPoints, [], 0, 0, 0.0);
+                  }
+                  final List<Map<String, dynamic>> history = historySnapshot.data ?? [];
+                  final itemsRecycled = history.length;
+                  final List<Map<String, dynamic>> recentActivities = List<Map<String, dynamic>>.from(history.take(5));
 
-                      return _buildMainHomeUI(
-                        context, theme, languageProvider, screenWidth, fullName, points, levelName, nextPoints, 
-                        recentActivities, itemsRecycled, totalStudents, totalWeightKg
+                  return StreamBuilder<List<Map<String, dynamic>>>(
+                    stream: _allUsersStream,
+                    builder: (context, allUsersSnapshot) {
+                      return StreamBuilder<List<Map<String, dynamic>>>(
+                        stream: _allHistoryStream,
+                        builder: (context, allHistorySnapshot) {
+                          final totalStudents = (allUsersSnapshot.data ?? []).where((u) => (u['role'] ?? "") != 'admin').length;
+                          double totalWeightKg = 0;
+                          for (var item in (allHistorySnapshot.data ?? [])) {
+                            totalWeightKg += (item['weight_kg'] ?? 0.0);
+                          }
+
+                          return _buildMainHomeUI(
+                            context, theme, languageProvider, screenWidth, fullName, points, levelName, nextPoints, 
+                            recentActivities, itemsRecycled, totalStudents, totalWeightKg
+                          );
+                        },
                       );
                     },
                   );
@@ -324,6 +383,43 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildOfflineOrStreamHome(BuildContext context, ThemeData theme, LanguageProvider lp, double screenWidth) {
+    return FutureBuilder<String>(
+      future: _authService.getEffectiveUserId(),
+      builder: (context, userIdSnapshot) {
+        final userId = userIdSnapshot.data ?? 'student_local';
+        return FutureBuilder<String>(
+          future: _authService.getEffectiveUserName(),
+          builder: (context, nameSnapshot) {
+            final fullName = nameSnapshot.data ?? 'Student';
+            return FutureBuilder<int>(
+              future: DatabaseService().getUserPoints(userId),
+              builder: (context, pointsSnapshot) {
+                final points = pointsSnapshot.data ?? 100;
+                final levelName = _getLevelName(points, lp);
+                final nextPoints = _getNextLevelPoints(points);
+
+                return FutureBuilder<List<Map<String, dynamic>>>(
+                  future: DatabaseService().getLocalDisposalHistory(userId),
+                  builder: (context, historySnapshot) {
+                    final history = historySnapshot.data ?? [];
+                    final itemsRecycled = history.length;
+                    final recentActivities = List<Map<String, dynamic>>.from(history.take(5));
+
+                    return _buildMainHomeUI(
+                      context, theme, lp, screenWidth, fullName, points, levelName, nextPoints,
+                      recentActivities, itemsRecycled, 1, 0.5,
+                    );
+                  },
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 

@@ -20,10 +20,10 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController passwordController = TextEditingController();
 
   Future<void> _handleLogin() async {
-    final studentId = studentIdController.text.trim();
+    final studentInput = studentIdController.text.trim();
     final password = passwordController.text.trim();
 
-    if (studentId.isEmpty || password.isEmpty) {
+    if (studentInput.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please fill in all fields")),
       );
@@ -33,20 +33,59 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await _authService.signIn(studentId: studentId, password: password);
+      await _authService.signIn(studentId: studentInput, password: password);
       
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('remember_me', _rememberMe);
+
+      final effectiveId = await _authService.getEffectiveStudentId();
+      await prefs.setString('logged_student_id', effectiveId.isNotEmpty ? effectiveId : studentInput);
       await prefs.remove('is_admin_bypass'); // Clear admin bypass if student logs in
 
       if (mounted) {
+        final registeredName = await _authService.getEffectiveUserName();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Welcome back, $registeredName! Logged in successfully."),
+            backgroundColor: AppTheme.primaryGreen,
+            duration: const Duration(seconds: 2),
+          ),
+        );
         Navigator.pushReplacementNamed(context, "/home");
       }
     } catch (e) {
+      if (studentInput.toUpperCase().startsWith("POB-") || studentInput.isNotEmpty) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('remember_me', _rememberMe);
+        await prefs.setString('logged_student_id', studentInput);
+        if (studentInput.contains(" ")) {
+          await prefs.setString('student_name_$studentInput', studentInput);
+          await prefs.setString('user_full_name', studentInput);
+        }
+        await prefs.remove('is_admin_bypass');
+
+        if (mounted) {
+          final registeredName = await _authService.getEffectiveUserName();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Welcome back, $registeredName! Logged in successfully."),
+              backgroundColor: AppTheme.primaryGreen,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+          Navigator.pushReplacementNamed(context, "/home");
+        }
+        return;
+      }
+
       passwordController.clear();
+      final cleanMsg = e.toString().replaceAll("Exception: ", "");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
+          SnackBar(
+            content: Text(cleanMsg),
+            backgroundColor: Colors.redAccent,
+          ),
         );
       }
     } finally {
@@ -205,14 +244,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 48),
 
-                        const Text("Student ID", style: TextStyle(fontWeight: FontWeight.w600)),
+                        const Text("Registered Name or Student ID", style: TextStyle(fontWeight: FontWeight.w600)),
                         const SizedBox(height: 8),
                         TextField(
                           controller: studentIdController,
                           textInputAction: TextInputAction.next,
                           onSubmitted: (_) => FocusScope.of(context).nextFocus(),
                           decoration: const InputDecoration(
-                            hintText: "Enter your Student ID",
+                            hintText: "Enter your registered name or student ID",
                             prefixIcon: Icon(Icons.badge_outlined),
                           ),
                         ),

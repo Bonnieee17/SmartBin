@@ -154,6 +154,7 @@
         const params = new URLSearchParams(window.location.search);
 
         // Detection Logic
+        const token = params.get('token');
         const voucher = params.get('voucher');
         const cost = params.get('cost');
         const type = params.get('type');
@@ -169,7 +170,29 @@
 
         let appLink = "";
 
-        if (voucher) {
+        if (token) {
+            // UNIQUE TOKEN UI
+            badge.innerText = "UNIQUE REWARD DETECTED";
+            badge.style.background = "#fff3e0";
+            badge.style.color = "#ef6c00";
+            title.innerText = "Claim Your Points";
+            description.innerHTML = `This reward session will expire in <b id="countdown">30</b>s.<br>Please open the official app to claim your points.`;
+            appLink = `smartbin://claim?token=${token}`;
+
+            // Countdown Logic
+            let timeLeft = 30;
+            const timer = setInterval(() => {
+                timeLeft--;
+                const countEl = document.getElementById('countdown');
+                if (countEl) countEl.innerText = timeLeft;
+                if (timeLeft <= 0) {
+                    clearInterval(timer);
+                    title.innerText = "Session Expired";
+                    description.innerText = "This unique claim token has expired. Please try again at the Bin.";
+                    downloadBtn.style.display = "none";
+                }
+            }, 1000);
+        } else if (voucher) {
             // VOUCHER UI
             badge.innerText = "VOUCHER AVAILABLE";
             badge.style.background = "#fff3e0";

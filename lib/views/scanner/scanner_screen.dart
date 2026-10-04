@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../services/database_service.dart';
 import '../../services/auth_service.dart';
+import '../../models/voucher_model.dart';
+import '../../core/theme/app_theme.dart';
 
 class ScannerScreen extends StatefulWidget {
   const ScannerScreen({super.key});
@@ -29,10 +31,24 @@ class _ScannerScreenState extends State<ScannerScreen> {
     setState(() => _isProcessing = true);
 
     try {
-      final user = _authService.currentUser;
-      if (user == null) return;
+      final userId = await _authService.getEffectiveUserId();
 
-      // --- CHECK IF IT'S A VOUCHER SCAN ---
+      // 1. --- DIGITAL UNIQUE IDENTIFIER PASS SCAN (e.g. SB-UID-XXXXXX) ---
+      if (code.toUpperCase().startsWith('SB-UID-') || code.startsWith('vch_')) {
+        try {
+          final VoucherModel updatedVoucher = await _databaseService.claimVoucherInOffice(code);
+          if (mounted) {
+            _showVoucherClaimedDialog(updatedVoucher);
+          }
+        } catch (e) {
+          if (mounted) {
+            _showErrorDialog(e.toString().replaceAll("Exception: ", ""));
+          }
+        }
+        return;
+      }
+
+      // 2. --- CHECK IF IT'S A VOUCHER REDEMPTION SCAN (e.g. voucher:Printing Credit:100) ---
       if (code.startsWith('voucher:')) {
         final parts = code.split(':');
         if (parts.length < 3) throw Exception("Invalid Voucher Format");
@@ -40,14 +56,12 @@ class _ScannerScreenState extends State<ScannerScreen> {
         final rewardName = parts[1];
         final pointsCost = int.tryParse(parts[2]) ?? 0;
 
-        // 1. Enforce 1000-point limit
         if (pointsCost > 1000) {
           throw Exception("Voucher limit exceeded. Max 1000 pts per scan.");
         }
 
-        // 2. Process Redemption
         await _databaseService.redeemVoucher(
-          userId: user.id,
+          userId: userId,
           pointsCost: pointsCost,
           rewardName: rewardName,
         );
@@ -58,7 +72,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
         return;
       }
 
-      // --- CHECK IF IT'S A DYNAMIC DISPOSAL SCAN (FROM BIN LCD) ---
+      // 3. --- CHECK IF IT'S A DYNAMIC DISPOSAL SCAN (FROM BIN LCD) ---
       if (code.startsWith('disposal:')) {
         final parts = code.split(':');
         if (parts.length < 4) throw Exception("Invalid Disposal Format");
@@ -68,10 +82,10 @@ class _ScannerScreenState extends State<ScannerScreen> {
         final binId = parts[3];
 
         await _databaseService.recordDisposal(
-          userId: user.id,
+          userId: userId,
           binId: binId,
           wasteType: wasteName,
-          weight: 0.1, // Hardware would provide this, we'll default for now
+          weight: 0.1,
           points: points,
         );
 
@@ -81,44 +95,90 @@ class _ScannerScreenState extends State<ScannerScreen> {
         return;
       }
 
-      // --- OTHERWISE, IT'S A LEGACY/STATIC BIN ID SCAN ---
-      final binId = code;
+      // 4. --- DEFAULT / STATIC BIN ID SCAN (Any QR code scanned) ---
+      final binId = code.isEmpty ? "BIN-01" : code;
       final wasteTypes = await _databaseService.getWasteTypes();
       final selectedWaste = wasteTypes.firstWhere(
-        (w) => w['waste_name'].toString().toLowerCase().contains('500ml'),
+        (w) => w['waste_name'].toString().toLowerCase().contains('bottle') ||
+               w['waste_name'].toString().toLowerCase().contains('500ml'),
         orElse: () => wasteTypes.first,
       );
 
+      final wasteName = selectedWaste['waste_name'] ?? 'PET Plastic Bottle';
+      final pts = selectedWaste['points'] ?? 10;
+
       await _databaseService.recordDisposal(
-        userId: user.id,
+        userId: userId,
         binId: binId,
-        wasteType: selectedWaste['waste_name'],
+        wasteType: wasteName,
         weight: 0.5,
-        points: selectedWaste['points'],
+        points: pts,
       );
 
       if (mounted) {
-        _showSuccessDialog(
-          selectedWaste['waste_name'],
-          selectedWaste['points'],
-        );
+        _showSuccessDialog(wasteName, pts);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString().replaceAll("Exception: ", "")),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
+        _showErrorDialog(e.toString().replaceAll("Exception: ", ""));
       }
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
   }
 
+  void _showVoucherClaimedDialog(VoucherModel voucher) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.verified, color: Colors.blue, size: 60),
+        title: const Text("Pass Verified & Claimed"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text("Code: ${voucher.code}", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+            const SizedBox(height: 8),
+            Text(voucher.rewardName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8)),
+              child: const Text("Status: CLAIMED AT PSITS OFFICE", style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 12)),
+            ),
+          ],
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pop(context);
+            },
+            child: const Text("Done"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.error_outline, color: Colors.redAccent, size: 50),
+        title: const Text("Scan Alert"),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showVoucherDialog(String rewardName, int points) {
-    // 10 Points = 1 Peso
     final double pesos = points / 10.0;
 
     showDialog(
@@ -126,7 +186,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         icon: const Icon(Icons.confirmation_number_outlined, color: Color(0xFFE6AD62), size: 60),
-        title: const Text("Voucher Redeemed!"),
+        title: const Text("Voucher Claimed!"),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -145,11 +205,12 @@ class _ScannerScreenState extends State<ScannerScreen> {
                 color: Colors.black87,
               ),
             ),
-            const Text("Voucher Value", style: TextStyle(fontSize: 12, color: Colors.grey)),
+            const Text("Voucher Value (PSITS Office)", style: TextStyle(fontSize: 12, color: Colors.grey)),
           ],
         ),
         actions: [
           FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.primaryGreen),
             onPressed: () {
               Navigator.pop(context);
               Navigator.pop(context);
@@ -171,7 +232,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(wasteName),
+            Text(wasteName, style: const TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Text(
               "+$points Eco Points",
@@ -185,6 +246,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
         ),
         actions: [
           FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.primaryGreen),
             onPressed: () {
               Navigator.pop(context); // Close dialog
               Navigator.pop(context); // Go back home
@@ -199,7 +261,11 @@ class _ScannerScreenState extends State<ScannerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Scan Bin QR")),
+      appBar: AppBar(
+        title: const Text("Scan SmartBin QR"),
+        backgroundColor: AppTheme.primaryGreen,
+        foregroundColor: Colors.white,
+      ),
       body: Stack(
         children: [
           MobileScanner(
@@ -211,8 +277,25 @@ class _ScannerScreenState extends State<ScannerScreen> {
               width: 250,
               height: 250,
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.white, width: 2),
+                border: Border.all(color: Colors.white, width: 3),
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 40,
+            left: 20,
+            right: 20,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.7),
                 borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                "Align SmartBin or Voucher QR code within frame to scan.",
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white, fontSize: 13),
               ),
             ),
           ),

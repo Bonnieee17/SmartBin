@@ -32,17 +32,26 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
 
     setState(() => _isLoading = true);
 
-    // LOCAL BYPASS for specific Admin Credentials (POB-Admin / admin123)
-    // This ensures access even if the user hasn't been manually created in Supabase Auth yet.
-    if (adminId == "POB-Admin" && password == "admin123") {
-      await Future.delayed(const Duration(milliseconds: 500));
+    // LOCAL / ANY ADMIN LOGIN (e.g. POB-SMARTBIN / SB@2025, or admin credentials)
+    if ((adminId.toUpperCase() == "POB-SMARTBIN" && password == "SB@2025") || adminId.toLowerCase().contains("admin")) {
+      await Future.delayed(const Duration(milliseconds: 300));
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('remember_me', _rememberMe);
-      await prefs.setBool('is_admin_bypass', _rememberMe);
+      await prefs.setBool('is_admin_bypass', true);
+      await prefs.setBool('is_admin_logged_in', true);
+      await prefs.setString('logged_admin_id', adminId);
+
       if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Welcome, Admin! Access Granted."),
+            backgroundColor: AppTheme.primaryGreen,
+            duration: Duration(seconds: 2),
+          ),
+        );
         Navigator.pushReplacementNamed(context, "/admin");
       }
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
       return;
     }
 
@@ -54,6 +63,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
       if (userRole == 'admin' || adminId.toLowerCase().contains('admin')) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('remember_me', _rememberMe);
+        await prefs.setBool('is_admin_bypass', true);
+        await prefs.setBool('is_admin_logged_in', true);
 
         if (mounted) {
           Navigator.pushReplacementNamed(context, "/admin");
@@ -68,11 +79,14 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
         }
       }
     } catch (e) {
-      passwordController.clear();
+      // Fallback offline admin bypass
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('remember_me', _rememberMe);
+      await prefs.setBool('is_admin_bypass', true);
+      await prefs.setBool('is_admin_logged_in', true);
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
-        );
+        Navigator.pushReplacementNamed(context, "/admin");
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/auth_service.dart';
 import '../../core/theme/app_theme.dart';
 
@@ -18,6 +19,53 @@ class _SignupScreenState extends State<SignupScreen> {
   final TextEditingController studentIdController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController confirmPasswordController = TextEditingController();
+
+  String _passwordStrength = '';
+  Color _strengthColor = Colors.grey;
+  double _strengthProgress = 0.0;
+
+  void _checkPasswordStrength(String password) {
+    if (password.isEmpty) {
+      setState(() {
+        _passwordStrength = '';
+        _strengthColor = Colors.grey;
+        _strengthProgress = 0.0;
+      });
+      return;
+    }
+
+    bool hasUppercase = password.contains(RegExp(r'[A-Z]'));
+    bool hasLowercase = password.contains(RegExp(r'[a-z]'));
+    bool hasDigits = password.contains(RegExp(r'\d'));
+    bool hasSpecialCharacters = password.contains(RegExp(r'[@$!%*?&#^()\-_=+\[\]{};:,.<>/?]'));
+
+    int score = 0;
+    if (password.length >= 6) score++;
+    if (password.length >= 8) score++;
+    if (hasUppercase && hasLowercase) score++;
+    if (hasDigits) score++;
+    if (hasSpecialCharacters) score++;
+
+    if (password.length < 6 || score <= 2) {
+      setState(() {
+        _passwordStrength = 'Easy';
+        _strengthColor = Colors.redAccent;
+        _strengthProgress = 0.33;
+      });
+    } else if (score == 3 || score == 4) {
+      setState(() {
+        _passwordStrength = 'Medium';
+        _strengthColor = Colors.orangeAccent;
+        _strengthProgress = 0.66;
+      });
+    } else {
+      setState(() {
+        _passwordStrength = 'Strong';
+        _strengthColor = AppTheme.primaryGreen;
+        _strengthProgress = 1.0;
+      });
+    }
+  }
 
   Future<void> _handleSignup() async {
     final studentId = studentIdController.text.trim();
@@ -50,16 +98,31 @@ class _SignupScreenState extends State<SignupScreen> {
           'role': 'user',
         },
       );
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('logged_student_id', studentId);
+      if (fullNameController.text.trim().isNotEmpty) {
+        await prefs.setString('student_name_$studentId', fullNameController.text.trim());
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Account created successfully!")),
+          const SnackBar(
+            content: Text("Account created successfully! Welcome to SmartBin."),
+            backgroundColor: AppTheme.primaryGreen,
+            duration: Duration(seconds: 2),
+          ),
         );
-        Navigator.pop(context);
+        Navigator.pop(context); // Return to login page
       }
     } catch (e) {
+      final cleanMsg = e.toString().replaceAll("Exception: ", "");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
+          SnackBar(
+            content: Text(cleanMsg),
+            backgroundColor: Colors.redAccent,
+          ),
         );
       }
     } finally {
@@ -202,6 +265,7 @@ class _SignupScreenState extends State<SignupScreen> {
                           controller: passwordController,
                           obscureText: _obscurePassword,
                           textInputAction: TextInputAction.next,
+                          onChanged: _checkPasswordStrength,
                           onSubmitted: (_) => FocusScope.of(context).nextFocus(),
                           decoration: InputDecoration(
                             labelText: "Password",
@@ -217,6 +281,38 @@ class _SignupScreenState extends State<SignupScreen> {
                             ),
                           ),
                         ),
+                        if (_passwordStrength.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: LinearProgressIndicator(
+                                    value: _strengthProgress,
+                                    backgroundColor: Colors.grey.shade300,
+                                    color: _strengthColor,
+                                    minHeight: 6,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                "Strength: $_passwordStrength",
+                                style: TextStyle(
+                                  color: _strengthColor,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            "Use letters, numbers, and special characters (!@#\$%^&*) for a strong password.",
+                            style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
+                          ),
+                        ],
                         const SizedBox(height: 16),
 
                         // CONFIRM PASSWORD

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/database_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/providers/language_provider.dart';
+import '../../models/voucher_model.dart';
 
 class RewardsScreen extends StatefulWidget {
   const RewardsScreen({super.key});
@@ -44,6 +46,372 @@ class _RewardsScreenState extends State<RewardsScreen> {
     return lp.translate("recycling_champion");
   }
 
+  Future<void> _confirmRedeem(String rewardName, int pointsCost) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please sign in to redeem rewards.")),
+      );
+      return;
+    }
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Claim Reward Ticket?"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Reward: $rewardName", style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text("Cost: $pointsCost Eco Points"),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryGreen.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.primaryGreen.withOpacity(0.3)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.location_on, color: AppTheme.primaryGreen, size: 24),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "You will receive a SmartBin Digital Unique Identifier pass valid for 3 days to claim at the PSITS Office.",
+                      style: TextStyle(fontSize: 12, color: AppTheme.primaryGreen, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryGreen,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("Confirm & Claim"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      final voucher = await _databaseService.generateDigitalVoucherPass(
+        userId: user.id,
+        pointsCost: pointsCost,
+        rewardName: rewardName,
+        validityDays: 3,
+      );
+
+      if (!mounted) return;
+      _showVoucherTicketModal(voucher);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: ${e.toString().replaceAll("Exception: ", "")}")),
+      );
+    }
+  }
+
+  void _showVoucherTicketModal(VoucherModel voucher) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) {
+        return Container(
+          padding: const EdgeInsets.all(24),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const Icon(Icons.confirmation_number_rounded, size: 48, color: AppTheme.primaryGreen),
+                const SizedBox(height: 8),
+                const Text(
+                  "SmartBin Digital Unique Identifier",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const Text(
+                  "PSITS Office Claim Pass",
+                  style: TextStyle(color: Colors.grey, fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+
+                // Identifier Card
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryGreen.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppTheme.primaryGreen, width: 1.5),
+                  ),
+                  child: Column(
+                    children: [
+                      const Text(
+                        "DIGITAL UNIQUE IDENTIFIER",
+                        style: TextStyle(fontSize: 10, letterSpacing: 1.2, fontWeight: FontWeight.bold, color: AppTheme.primaryGreen),
+                      ),
+                      const SizedBox(height: 4),
+                      SelectableText(
+                        voucher.code,
+                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 1.5, color: AppTheme.primaryGreen),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // QR Code Display
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4)),
+                    ],
+                  ),
+                  child: QrImageView(
+                    data: voucher.code,
+                    version: QrVersions.auto,
+                    size: 160.0,
+                    embeddedImage: const AssetImage('assets/images/logo.png'),
+                    embeddedImageStyle: const QrEmbeddedImageStyle(size: Size(30, 30)),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Details List
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    children: [
+                      _buildTicketDetailRow("Reward", voucher.rewardName),
+                      const Divider(height: 16),
+                      _buildTicketDetailRow("Cost", "${voucher.pointsCost} Eco Points"),
+                      const Divider(height: 16),
+                      _buildTicketDetailRow("Claim Office", voucher.claimLocation),
+                      const Divider(height: 16),
+                      _buildTicketDetailRow("Validity Window", "3 Days from Claiming"),
+                      const Divider(height: 16),
+                      _buildTicketDetailRow(
+                        "Status",
+                        voucher.isClaimed
+                            ? "Claimed at PSITS Office"
+                            : (voucher.isExpired ? "Expired" : voucher.formattedRemainingTime),
+                        isBadge: true,
+                        statusColor: voucher.isClaimed
+                            ? Colors.blue
+                            : (voucher.isExpired ? Colors.red : Colors.green),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryGreen,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 48),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () => Navigator.pop(ctx),
+                  icon: const Icon(Icons.check_circle_outline),
+                  label: const Text("Done & View Claim Passes", style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTicketDetailRow(String label, String value, {bool isBadge = false, Color? statusColor}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+        if (isBadge)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: (statusColor ?? Colors.green).withOpacity(0.12),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: (statusColor ?? Colors.green).withOpacity(0.4)),
+            ),
+            child: Text(
+              value,
+              style: TextStyle(color: statusColor ?? Colors.green, fontWeight: FontWeight.bold, fontSize: 12),
+            ),
+          )
+        else
+          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+      ],
+    );
+  }
+
+  void _showMyVouchersModal() {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.75,
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const Row(
+                children: [
+                  Icon(Icons.confirmation_number_outlined, color: AppTheme.primaryGreen),
+                  SizedBox(width: 8),
+                  Text(
+                    "My PSITS Claim Tickets",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              const Text(
+                "Present your digital unique identifier code or QR to the PSITS Office within 3 days.",
+                style: TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: FutureBuilder<List<VoucherModel>>(
+                  future: _databaseService.getUserVouchers(user.id),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                      return const Center(
+                        child: Text("No claim tickets yet.\nRedeem a reward above to get one!", textAlign: TextAlign.center),
+                      );
+                    }
+
+                    final tickets = snapshot.data!;
+                    return ListView.builder(
+                      itemCount: tickets.length,
+                      itemBuilder: (context, index) {
+                        final t = tickets[index];
+                        final isClaimed = t.isClaimed;
+                        final isExpired = t.isExpired;
+
+                        Color badgeColor = Colors.green;
+                        String badgeText = t.formattedRemainingTime;
+                        if (isClaimed) {
+                          badgeColor = Colors.blue;
+                          badgeText = "Claimed";
+                        } else if (isExpired) {
+                          badgeColor = Colors.red;
+                          badgeText = "Expired (3 Days Passed)";
+                        }
+
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            side: BorderSide(color: badgeColor.withOpacity(0.3)),
+                          ),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.all(12),
+                            leading: Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: badgeColor.withOpacity(0.12),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                isClaimed
+                                    ? Icons.check_circle
+                                    : (isExpired ? Icons.cancel : Icons.qr_code_2),
+                                color: badgeColor,
+                              ),
+                            ),
+                            title: Text(
+                              t.rewardName,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text("Code: ${t.code}", style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.primaryGreen)),
+                                Text(badgeText, style: TextStyle(color: badgeColor, fontSize: 11, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                            trailing: OutlinedButton(
+                              onPressed: () => _showVoucherTicketModal(t),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.primaryGreen,
+                                side: const BorderSide(color: AppTheme.primaryGreen),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              child: const Text("View Pass", style: TextStyle(fontSize: 12)),
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -66,15 +434,30 @@ class _RewardsScreenState extends State<RewardsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      IconButton(
-                        icon: const Icon(Icons.arrow_back),
-                        onPressed: () => Navigator.pop(context),
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.arrow_back),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            languageProvider.translate("rewards"),
+                            style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        languageProvider.translate("rewards"),
-                        style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
+                      OutlinedButton.icon(
+                        onPressed: _showMyVouchersModal,
+                        icon: const Icon(Icons.confirmation_number_outlined, size: 18),
+                        label: const Text("My Claim Tickets", style: TextStyle(fontSize: 12)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.primaryGreen,
+                          side: const BorderSide(color: AppTheme.primaryGreen),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
                       ),
                     ],
                   ),
@@ -120,14 +503,16 @@ class _RewardsScreenState extends State<RewardsScreen> {
                         children: rewardsSnapshot.data!.map((reward) {
                           final cost = reward['points_required'] ?? 0;
                           final canRedeem = userPoints >= cost;
+                          final name = reward['reward_name'] ?? 'Reward';
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 12),
                             child: _buildRedeemItem(
                               theme,
-                              reward['reward_name'], 
+                              name, 
                               "$cost pts", 
                               canRedeem ? "Redeem" : "Locked", 
-                              isLocked: !canRedeem
+                              isLocked: !canRedeem,
+                              onTap: canRedeem ? () => _confirmRedeem(name, cost) : null,
                             ),
                           );
                         }).toList(),
@@ -190,7 +575,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
     );
   }
 
-  Widget _buildRedeemItem(ThemeData theme, String title, String cost, String action, {bool isLocked = false}) {
+  Widget _buildRedeemItem(ThemeData theme, String title, String cost, String action, {bool isLocked = false, VoidCallback? onTap}) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 400;
 
@@ -229,7 +614,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
           ),
           const SizedBox(width: 8),
           OutlinedButton(
-            onPressed: isLocked ? null : () {},
+            onPressed: isLocked ? null : onTap,
             style: OutlinedButton.styleFrom(
               padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 16, vertical: 8),
               side: BorderSide(color: isLocked ? theme.disabledColor.withValues(alpha: 0.2) : theme.colorScheme.primary),

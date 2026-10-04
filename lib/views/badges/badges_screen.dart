@@ -48,12 +48,12 @@ class _BadgesScreenState extends State<BadgesScreen> {
   IconData _getBadgeIcon(String? iconName) {
     final name = iconName?.replaceAll('.png', '') ?? '';
     switch (name) {
-      case 'eco_beginner': return Icons.emoji_events_outlined;
+      case 'eco_beginner': return Icons.eco_outlined;
       case 'eco_recycler': return Icons.recycling;
-      case 'eco_warrior': return Icons.shield_outlined;
-      case 'green_guardian': return Icons.nature_people_outlined;
-      case 'recycling_champion': return Icons.workspace_premium;
-      case 'sustainability_hero': return Icons.auto_awesome;
+      case 'eco_warrior': return Icons.bolt;
+      case 'green_guardian': return Icons.forest;
+      case 'recycling_champion': return Icons.emoji_events;
+      case 'sustainability_hero': return Icons.public;
       default: return Icons.military_tech;
     }
   }
@@ -160,12 +160,21 @@ class _BadgesScreenState extends State<BadgesScreen> {
                               backgroundColor: isEarned 
                                   ? theme.colorScheme.primary.withOpacity(0.1) 
                                   : theme.disabledColor.withOpacity(0.1),
-                              child: Icon(
-                                _getBadgeIcon(badge['badge_icon']),
-                                size: MediaQuery.of(context).size.width < 400 ? 24 : 30,
-                                color: isEarned 
-                                    ? theme.colorScheme.primary 
-                                    : theme.disabledColor,
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(30),
+                                child: Image.asset(
+                                  'assets/images/${badge['badge_icon'] ?? 'eco_beginner.png'}',
+                                  width: MediaQuery.of(context).size.width < 400 ? 32 : 44,
+                                  height: MediaQuery.of(context).size.width < 400 ? 32 : 44,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) => Icon(
+                                    _getBadgeIcon(badge['badge_icon']),
+                                    size: MediaQuery.of(context).size.width < 400 ? 24 : 30,
+                                    color: isEarned 
+                                        ? theme.colorScheme.primary 
+                                        : theme.disabledColor,
+                                  ),
+                                ),
                               ),
                             ),
                             title: Text(

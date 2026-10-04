@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -65,28 +66,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _pickImage() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-    
-    if (image != null) {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 80,
+      );
+      
+      if (image != null) {
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text("Update Profile Photo"),
+              content: const Text("Do you want to save this as your new profile photo?"),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+                TextButton(
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    final bytes = await image.readAsBytes();
+                    await _uploadImage(bytes, image.name);
+                  },
+                  child: const Text("Save"),
+                ),
+              ],
+            ),
+          );
+        }
+      }
+    } catch (e) {
       if (mounted) {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text("Update Profile Photo"),
-            content: const Text("Do you want to save this as your new profile photo?"),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
-              TextButton(
-                onPressed: () async {
-                  Navigator.pop(context);
-                  final bytes = await image.readAsBytes();
-                  _uploadImage(bytes, image.name);
-                },
-                child: const Text("Save"),
-              ),
-            ],
-          ),
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error picking image: ${e.toString()}"), backgroundColor: Colors.redAccent),
         );
       }
     }
@@ -96,34 +110,70 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() => _isUpdating = true);
     try {
       final user = _authService.currentUser;
-      if (user == null) return;
-      
-      final storagePath = 'avatars/${user.id}_$fileName';
-      
-      await _supabase.storage.from('avatars').uploadBinary(
-        storagePath,
-        bytes,
-        fileOptions: const FileOptions(upsert: true),
-      );
-      
-      final String publicUrl = _supabase.storage.from('avatars').getPublicUrl(storagePath);
-      
-      // Update Auth Metadata (Safe fallback)
-      await _supabase.auth.updateUser(UserAttributes(data: {'avatar_url': publicUrl}));
+      final prefs = await SharedPreferences.getInstance();
+      final loggedId = prefs.getString('logged_student_id') ?? (user?.id ?? 'student_user');
 
-      // Try to update public users table, but don't crash if column is missing
+      final ext = fileName.split('.').last.toLowerCase();
+      final contentType = (ext == 'png') ? 'image/png' : 'image/jpeg';
+      
+      final storagePath = '${loggedId}_$fileName';
+
+      String? publicUrl;
+
+      // 1. Always upload directly to Supabase storage 'avatars' bucket
       try {
-        await _supabase.from('users').upsert({
-          'id': user.id, 
-          'avatar_url': publicUrl,
-        });
-      } catch (e) {
-        debugPrint("Note: avatar_url column might be missing in 'users' table. Using metadata instead.");
+        await _supabase.storage.from('avatars').uploadBinary(
+          storagePath,
+          bytes,
+          fileOptions: FileOptions(upsert: true, contentType: contentType),
+        );
+        publicUrl = _supabase.storage.from('avatars').getPublicUrl(storagePath);
+      } catch (supabaseErr) {
+        debugPrint("Supabase storage upload error: $supabaseErr");
       }
       
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Profile photo updated!")));
+      // 2. Use Supabase public URL if successful, otherwise fallback to local base64 data URI
+      final avatarValue = publicUrl ?? ('data:$contentType;base64,' + base64Encode(bytes));
+      
+      await prefs.setString('user_avatar', avatarValue);
+      if (loggedId.isNotEmpty) {
+        await prefs.setString('avatar_url_$loggedId', avatarValue);
+      }
+
+      // 3. Update public users table in Supabase if connected
+      try {
+        if (user != null) {
+          await _supabase.auth.updateUser(UserAttributes(data: {'avatar_url': avatarValue}));
+          await _supabase.from('users').upsert({
+            'id': user.id, 
+            'avatar_url': avatarValue,
+          });
+        } else {
+          await _supabase.from('users').update({'avatar_url': avatarValue}).eq('student_id', loggedId);
+        }
+      } catch (_) {}
+      
+      if (mounted) {
+        setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Profile photo uploaded to Supabase avatars bucket!"),
+            backgroundColor: AppTheme.primaryGreen,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Upload Error: ${e.toString()}")));
+      if (mounted) {
+        final cleanErr = e.toString().replaceAll("Exception: ", "");
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Upload Error: $cleanErr"),
+            backgroundColor: Colors.redAccent,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isUpdating = false);
     }
@@ -163,42 +213,69 @@ class _ProfileScreenState extends State<ProfileScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           final userData = userSnapshot.hasData && userSnapshot.data!.isNotEmpty ? userSnapshot.data!.first : null;
-          
           final authUser = _supabase.auth.currentUser;
-          final fullName = authUser?.userMetadata?['full_name'] ?? userData?['full_name'] ?? "User";
-          final studentId = authUser?.userMetadata?['student_id'] ?? userData?['student_id'] ?? "No ID";
-          final dept = userData?['department'] ?? "CICT";
-          final points = userData?['total_points'] ?? 0;
-          final avatarUrl = authUser?.userMetadata?['avatar_url'] ?? userData?['avatar_url'];
+          final dept = userData?['department'] ?? "CICI";
 
-          return StreamBuilder<List<Map<String, dynamic>>>(
-            stream: _historyStream,
-            builder: (context, historySnapshot) {
-              final history = historySnapshot.data ?? [];
-              final totalRecycled = history.length;
-              
-              int recyclable = 0, nonBio = 0;
-              for (var item in history) {
-                final type = (item['waste_type'] ?? "").toString().toLowerCase();
-                if (type.contains('bottle') || type.contains('paper') || type.contains('metal') || type.contains('can') || type.contains('glass')) {
-                  recyclable++;
-                } else {
-                  nonBio++;
-                }
-              }
+          return FutureBuilder<SharedPreferences>(
+            future: SharedPreferences.getInstance(),
+            builder: (context, prefsSnapshot) {
+              final prefs = prefsSnapshot.data;
+              final loggedId = prefs?.getString('logged_student_id');
+              final localAvatar = prefs?.getString('user_avatar') ?? (loggedId != null ? prefs?.getString('avatar_url_$loggedId') : null);
+              final avatarUrl = authUser?.userMetadata?['avatar_url'] ?? userData?['avatar_url'] ?? localAvatar;
 
-              return StreamBuilder<List<Map<String, dynamic>>>(
-                stream: _allUsersStream,
-                builder: (context, allUsersSnapshot) {
-                  int rank = 1;
-                  if (allUsersSnapshot.hasData) {
-                    final users = allUsersSnapshot.data!;
-                    for (int i = 0; i < users.length; i++) {
-                      if (users[i]['id'] == _authService.currentUser?.id) { rank = i + 1; break; }
-                    }
-                  }
+              return FutureBuilder<String>(
+                future: _authService.getEffectiveUserName(),
+                builder: (context, nameSnapshot) {
+                  final rawName = authUser?.userMetadata?['full_name'] ?? userData?['full_name'];
+                  final fullName = (rawName != null && rawName.toString().trim().isNotEmpty && rawName != 'User' && rawName != 'Student')
+                      ? rawName.toString().trim()
+                      : (nameSnapshot.data ?? 'Student');
 
-                  return _buildMainProfileUI(theme, languageProvider, fullName, studentId, dept, points, avatarUrl, totalRecycled, recyclable, nonBio, rank, history);
+                  return FutureBuilder<String>(
+                    future: _authService.getEffectiveStudentId(),
+                    builder: (context, idSnapshot) {
+                      final rawId = authUser?.userMetadata?['student_id'] ?? userData?['student_id'];
+                      final studentId = (rawId != null && rawId.toString().trim().isNotEmpty && rawId != 'No ID' && rawId != 'N/A')
+                          ? rawId.toString().trim()
+                          : (idSnapshot.data ?? 'POB-1001');
+
+                      return StreamBuilder<List<Map<String, dynamic>>>(
+                        stream: _historyStream,
+                        builder: (context, historySnapshot) {
+                          final history = historySnapshot.data ?? [];
+                          final totalRecycled = history.length;
+                          
+                          int recyclable = 0, nonBio = 0;
+                          for (var item in history) {
+                            final type = (item['waste_type'] ?? "").toString().toLowerCase();
+                            if (type.contains('bottle') || type.contains('paper') || type.contains('metal') || type.contains('can') || type.contains('glass')) {
+                              recyclable++;
+                            } else {
+                              nonBio++;
+                            }
+                          }
+
+                          return StreamBuilder<List<Map<String, dynamic>>>(
+                            stream: _allUsersStream,
+                            builder: (context, allUsersSnapshot) {
+                              int rank = 1;
+                              if (allUsersSnapshot.hasData) {
+                                final users = allUsersSnapshot.data!;
+                                for (int i = 0; i < users.length; i++) {
+                                  if (users[i]['id'] == _authService.currentUser?.id) { rank = i + 1; break; }
+                                }
+                              }
+
+                              final points = userData?['total_points'] ?? 0;
+
+                              return _buildMainProfileUI(theme, languageProvider, fullName, studentId, dept, points, avatarUrl, totalRecycled, recyclable, nonBio, rank, history);
+                            },
+                          );
+                        },
+                      );
+                    },
+                  );
                 },
               );
             },
@@ -314,7 +391,83 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  void _showEditNameDialog(String currentName) {
+    final nameController = TextEditingController(
+      text: (currentName == 'Student' || currentName == 'Student User' || currentName == 'User') ? '' : currentName,
+    );
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Edit Registered Name"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Enter your registered full name:",
+              style: TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: nameController,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: "Full Name",
+                hintText: "e.g. Stephanie Perez",
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryGreen,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              final newName = nameController.text.trim();
+              if (newName.isNotEmpty) {
+                await _authService.updateUserName(newName);
+                if (mounted) {
+                  Navigator.pop(ctx);
+                  setState(() {});
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Registered name updated successfully!"),
+                      backgroundColor: AppTheme.primaryGreen,
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text("Save"),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildProfileHeader(ThemeData theme, String name, String id, String dept, String? avatar, bool isMobile) {
+    ImageProvider? imageProvider;
+    if (avatar != null && avatar.isNotEmpty) {
+      if (avatar.startsWith('data:')) {
+        try {
+          final base64Data = avatar.split(',').last;
+          final bytes = base64Decode(base64Data);
+          imageProvider = MemoryImage(bytes);
+        } catch (_) {}
+      } else {
+        imageProvider = NetworkImage(avatar);
+      }
+    }
+
     return Row(
       children: [
         GestureDetector(
@@ -324,8 +477,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               CircleAvatar(
                 radius: isMobile ? 36 : 48,
                 backgroundColor: theme.colorScheme.secondary.withValues(alpha: 0.5),
-                backgroundImage: avatar != null ? NetworkImage(avatar) : null,
-                child: avatar == null ? Icon(Icons.person, size: isMobile ? 36 : 48, color: theme.colorScheme.primary) : null,
+                backgroundImage: imageProvider,
+                child: imageProvider == null ? Icon(Icons.person, size: isMobile ? 36 : 48, color: theme.colorScheme.primary) : null,
               ),
               Positioned(
                 bottom: 0, 
@@ -345,10 +498,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                name, 
-                style: (isMobile ? theme.textTheme.titleMedium : theme.textTheme.titleLarge)?.copyWith(fontWeight: FontWeight.bold),
-                overflow: TextOverflow.ellipsis,
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      name, 
+                      style: (isMobile ? theme.textTheme.titleMedium : theme.textTheme.titleLarge)?.copyWith(fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, size: 18, color: AppTheme.primaryGreen),
+                    tooltip: "Edit Registered Name",
+                    onPressed: () => _showEditNameDialog(name),
+                  ),
+                ],
               ),
               Text(
                 "Student ID: $id", 
@@ -463,26 +627,72 @@ class _ProfileScreenState extends State<ProfileScreen> {
       decoration: BoxDecoration(color: theme.colorScheme.surface, borderRadius: BorderRadius.circular(24), border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1))),
       child: Column(
         children: [
-          _buildBadgeCheck(theme, lp.translate("eco_beginner"), points >= 100),
-          _buildBadgeCheck(theme, lp.translate("eco_recycler"), points >= 250),
-          _buildBadgeCheck(theme, lp.translate("eco_warrior"), points >= 500),
-          _buildBadgeCheck(theme, lp.translate("green_guardian"), points >= 750),
-          _buildBadgeCheck(theme, lp.translate("recycling_champion"), points >= 1000),
-          _buildBadgeCheck(theme, lp.translate("sustainability_hero"), points >= 1500, isLocked: points < 1500),
+          _buildBadgeCheck(theme, lp.translate("eco_beginner"), points >= 100, 'assets/images/eco_beginner.png', Icons.eco_outlined, "100 pts"),
+          _buildBadgeCheck(theme, lp.translate("eco_recycler"), points >= 250, 'assets/images/eco_recycler.png', Icons.recycling, "250 pts"),
+          _buildBadgeCheck(theme, lp.translate("eco_warrior"), points >= 500, 'assets/images/eco_warrior.png', Icons.bolt, "500 pts"),
+          _buildBadgeCheck(theme, lp.translate("green_guardian"), points >= 750, 'assets/images/green_guardian.png', Icons.forest, "750 pts"),
+          _buildBadgeCheck(theme, lp.translate("recycling_champion"), points >= 1000, 'assets/images/recycling_champion.png', Icons.emoji_events, "1000 pts"),
+          _buildBadgeCheck(theme, lp.translate("sustainability_hero"), points >= 1500, 'assets/images/sustainability_hero.png', Icons.public, "1500 pts", isLocked: points < 1500),
         ],
       ),
     );
   }
 
-  Widget _buildBadgeCheck(ThemeData theme, String name, bool completed, {bool isLocked = false}) {
+  Widget _buildBadgeCheck(ThemeData theme, String name, bool completed, String assetPath, IconData fallbackIcon, String pointsText, {bool isLocked = false}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Row(
         children: [
-          Icon(isLocked ? Icons.lock_outline : (completed ? Icons.check_circle : Icons.radio_button_unchecked), 
-               color: isLocked ? theme.disabledColor : (completed ? theme.colorScheme.primary : theme.disabledColor.withValues(alpha: 0.5)), size: 20),
-          const SizedBox(width: 12),
-          Text(name, style: theme.textTheme.bodyLarge?.copyWith(color: isLocked ? theme.disabledColor : theme.textTheme.bodyLarge?.color, fontWeight: completed ? FontWeight.bold : FontWeight.normal)),
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: isLocked ? theme.disabledColor.withValues(alpha: 0.1) : theme.colorScheme.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Image.asset(
+                assetPath,
+                width: 24,
+                height: 24,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Icon(
+                  fallbackIcon,
+                  color: isLocked ? theme.disabledColor : theme.colorScheme.primary,
+                  size: 22,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: isLocked ? theme.disabledColor : theme.textTheme.bodyLarge?.color,
+                    fontWeight: completed ? FontWeight.bold : FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  pointsText,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isLocked ? theme.disabledColor : theme.colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(
+            isLocked ? Icons.lock_outline : (completed ? Icons.check_circle : Icons.radio_button_unchecked),
+            color: isLocked ? theme.disabledColor : (completed ? Colors.green : theme.disabledColor.withValues(alpha: 0.5)),
+            size: 20,
+          ),
         ],
       ),
     );

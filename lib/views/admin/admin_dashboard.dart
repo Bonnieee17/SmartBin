@@ -5,11 +5,12 @@ import '../../services/database_service.dart';
 import '../../services/auth_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/constants/app_constants.dart';
-import 'widgets/summary_card.dart';
-import 'widgets/waste_chart_placeholder.dart';
-import 'widgets/user_table.dart';
 import 'widgets/student_table.dart';
+import 'widgets/summary_card.dart';
+import 'widgets/user_table.dart';
+import 'widgets/waste_chart_placeholder.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import '../../models/voucher_model.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -34,6 +35,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   String _qrData = "voucher:Printing Credit:100";
 
+  // PSITS Office Voucher Verifier
+  final _verifyCodeController = TextEditingController();
+  VoucherModel? _foundVoucher;
+  bool _isSearchingVoucher = false;
+  String? _voucherSearchError;
+  String? _voucherSearchSuccess;
+
   // Hardware simulator
   String _simQrData = "";
   String _simStatus = "Waiting for item...";
@@ -47,16 +55,18 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Future<void> _checkAdminAccess() async {
+    final prefs = await SharedPreferences.getInstance();
+    final isAdminBypass = prefs.getBool('is_admin_bypass') ?? false;
+    final isAdminLoggedIn = prefs.getBool('is_admin_logged_in') ?? false;
     final user = _authService.currentUser;
-    if (user == null || user.userMetadata?['role'] != 'admin') {
-      // Check if bypass is active
-      final prefs = await SharedPreferences.getInstance();
-      final isAdminBypass = prefs.getBool('is_admin_bypass') ?? false;
-      
-      if (!isAdminBypass) {
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, "/");
-        }
+
+    final isAuthorized = isAdminBypass ||
+        isAdminLoggedIn ||
+        (user != null && (user.userMetadata?['role'] == 'admin' || user.email?.contains('admin') == true));
+
+    if (!isAuthorized) {
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, "/admin-login");
       }
     }
   }
@@ -66,6 +76,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     _productionUrlController.dispose();
     _voucherNameController.dispose();
     _voucherPointsController.dispose();
+    _verifyCodeController.dispose();
     super.dispose();
   }
 
@@ -227,11 +238,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 ),
               ),
               onTap: () async {
-                final prefs =
-                await SharedPreferences.getInstance();
+                final prefs = await SharedPreferences.getInstance();
 
                 await prefs.remove('remember_me');
                 await prefs.remove('is_admin_bypass');
+                await prefs.remove('is_admin_logged_in');
 
                 await _authService.signOut();
 
@@ -239,7 +250,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
                 Navigator.pushReplacementNamed(
                   context,
-                  "/",
+                  "/admin-login",
                 );
               },
             ),
@@ -303,7 +314,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         CrossAxisAlignment.start,
         children: [
           const Text(
-            "Voucher Generator",
+            "Voucher Generator & PSITS Claim Verifier",
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -313,11 +324,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
           const SizedBox(height: 8),
 
           const Text(
-            "Create and display QR codes for printing vouchers.",
+            "Verify SmartBin digital unique identifiers, process PSITS Office voucher redemptions, or generate QR vouchers.",
             style: TextStyle(
               color: Colors.grey,
             ),
           ),
+
+          const SizedBox(height: 24),
+
+          // PSITS OFFICE CLAIM VERIFIER CARD
+          _buildPsitsClaimVerifier(),
 
           const SizedBox(height: 40),
 
@@ -348,6 +364,205 @@ class _AdminDashboardState extends State<AdminDashboard> {
         ],
       ),
     );
+  }
+
+  Widget _buildPsitsClaimVerifier() {
+    return Container(
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: Colors.grey.withOpacity(0.15)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryGreen.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.verified_user, color: AppTheme.primaryGreen),
+              ),
+              const SizedBox(width: 12),
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("PSITS Office Voucher Verifier", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text("Verify student unique identifiers & mark claims as redeemed at PSITS Office", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _verifyCodeController,
+                  decoration: InputDecoration(
+                    labelText: "Enter SmartBin Digital Unique Identifier (e.g. SB-UID-XXXXXX)",
+                    prefixIcon: const Icon(Icons.qr_code),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  onSubmitted: (_) => _searchAndVerifyVoucher(),
+                ),
+              ),
+              const SizedBox(width: 12),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryGreen,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                onPressed: _isSearchingVoucher ? null : _searchAndVerifyVoucher,
+                icon: const Icon(Icons.search),
+                label: const Text("Verify Pass"),
+              ),
+            ],
+          ),
+          if (_voucherSearchError != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(12)),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(_voucherSearchError!, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 13))),
+                ],
+              ),
+            ),
+          ],
+          if (_voucherSearchSuccess != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(12)),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle_outline, color: Colors.green, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(_voucherSearchSuccess!, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 13))),
+                ],
+              ),
+            ),
+          ],
+          if (_foundVoucher != null) ...[
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppTheme.backgroundBeige,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppTheme.primaryGreen.withOpacity(0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text("Code: ${_foundVoucher!.code}", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryGreen)),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: _foundVoucher!.isClaimed ? Colors.blue.shade100 : (_foundVoucher!.isExpired ? Colors.red.shade100 : Colors.green.shade100),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          _foundVoucher!.isClaimed ? "CLAIMED" : (_foundVoucher!.isExpired ? "EXPIRED" : "ACTIVE (VALID 3 DAYS)"),
+                          style: TextStyle(
+                            color: _foundVoucher!.isClaimed ? Colors.blue.shade900 : (_foundVoucher!.isExpired ? Colors.red.shade900 : Colors.green.shade900),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 20),
+                  Text("Reward Name: ${_foundVoucher!.rewardName}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  Text("Eco Points Spent: ${_foundVoucher!.pointsCost} pts", style: const TextStyle(fontSize: 13)),
+                  Text("Claim Location: ${_foundVoucher!.claimLocation}", style: const TextStyle(fontSize: 13)),
+                  Text("Validity Status: ${_foundVoucher!.formattedRemainingTime}", style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 16),
+                  if (!_foundVoucher!.isClaimed && !_foundVoucher!.isExpired)
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryGreen,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(double.infinity, 46),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: _markAsClaimedInOffice,
+                      icon: const Icon(Icons.check_circle),
+                      label: const Text("MARK AS CLAIMED AT PSITS OFFICE", style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _searchAndVerifyVoucher() async {
+    final code = _verifyCodeController.text.trim();
+    if (code.isEmpty) return;
+
+    setState(() {
+      _isSearchingVoucher = true;
+      _voucherSearchError = null;
+      _voucherSearchSuccess = null;
+      _foundVoucher = null;
+    });
+
+    try {
+      final vouchers = await _databaseService.getAllVouchers();
+      final cleanCode = code.toUpperCase();
+      final match = vouchers.firstWhere(
+        (v) => v.code.toUpperCase() == cleanCode || v.id.toUpperCase() == cleanCode,
+        orElse: () => throw Exception("No voucher ticket found with identifier '$code'."),
+      );
+
+      setState(() {
+        _foundVoucher = match;
+      });
+    } catch (e) {
+      setState(() {
+        _voucherSearchError = e.toString().replaceAll("Exception: ", "");
+      });
+    } finally {
+      setState(() {
+        _isSearchingVoucher = false;
+      });
+    }
+  }
+
+  Future<void> _markAsClaimedInOffice() async {
+    if (_foundVoucher == null) return;
+
+    try {
+      final updated = await _databaseService.claimVoucherInOffice(_foundVoucher!.code);
+      setState(() {
+        _foundVoucher = updated;
+        _voucherSearchSuccess = "Voucher ${_foundVoucher!.code} successfully marked as CLAIMED at PSITS Office!";
+      });
+    } catch (e) {
+      setState(() {
+        _voucherSearchError = e.toString().replaceAll("Exception: ", "");
+      });
+    }
   }
 
   Widget _buildVoucherInputs() {
@@ -735,21 +950,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
             onPressed: () {
               setState(() {
                 _simQrData = "";
-                _simStatus =
-                "Waiting for item...";
+                _simStatus = "Waiting for item...";
                 _simColor = Colors.grey;
               });
               
-              _databaseService.updateBinStatus(
-                binId: "BIN-001",
-                status: _simStatus,
-                qrData: "",
-                color: Colors.grey.value.toRadixString(16),
-              );
+              // No longer using manual status updates, 
+              // sessions handle themselves via expiration.
             },
-            child: const Text(
-              "Reset LCD",
-            ),
+            child: const Text("Clear Active Item"),
           ),
         ],
       ),
@@ -766,26 +974,31 @@ class _AdminDashboardState extends State<AdminDashboard> {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
-        onPressed: () {
-          final baseUrl = _productionUrlController.text.trim();
-
-          setState(() {
-            _simStatus =
-            "Item Detected: $type";
-
-            _simColor = color;
-
-            _simQrData =
-            "${AppConstants.claimPage}?type=${Uri.encodeComponent(type)}&pts=$pts&bin=BIN-001";
-          });
+        onPressed: () async {
+          setState(() => _simStatus = "Processing...");
           
-          // Sync to Database for remote simulator
-          _databaseService.updateBinStatus(
-            binId: "BIN-001",
-            status: _simStatus,
-            qrData: _simQrData,
-            color: color.value.toRadixString(16),
-          );
+          try {
+            // Create a REAL unique reward session in the database
+            // This is what the physical hardware will eventually do
+            final token = await _databaseService.createRewardSession(
+              binId: "BIN-001",
+              points: pts,
+              wasteType: type,
+            );
+
+            if (mounted) {
+              setState(() {
+                _simStatus = "Item Detected: $type";
+                _simColor = color;
+                _simQrData = "${AppConstants.claimPage}?token=$token";
+              });
+            }
+          } catch (e) {
+            if (mounted) {
+              setState(() => _simStatus = "Error triggering reward");
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+            }
+          }
         },
         icon: Icon(
           icon,

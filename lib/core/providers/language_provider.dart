@@ -148,7 +148,6 @@ class LanguageProvider extends ChangeNotifier {
       "home": "Home",
       "rank": "Ranggo",
       "profile": "Profile",
-      "active_sessions": "Mga Session",
     },
     "Hiligaynon": {
       "settings_title": "Mga Setting sang Account",
@@ -205,7 +204,6 @@ class LanguageProvider extends ChangeNotifier {
       "home": "Home",
       "rank": "Ranggo",
       "profile": "Profile",
-      "active_sessions": "Mga Session",
     }
   };
 }

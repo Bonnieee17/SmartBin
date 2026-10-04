@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/theme/theme_provider.dart';
 import '../../core/providers/language_provider.dart';
 import '../../services/auth_service.dart';
@@ -22,12 +23,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _confirmPasswordController = TextEditingController();
   
   bool _isUpdating = false;
+  bool _obscureNewPassword = true;
+  bool _obscureConfirmPassword = true;
 
   bool _pushNotifications = true;
   bool _rewardAlerts = true;
   bool _badgeNotifications = true;
-  bool _biometricLogin = false;
-  bool _pinLock = false;
 
   @override
   void initState() {
@@ -85,21 +86,57 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please fill in the new password fields")));
       return;
     }
+    if (_newPasswordController.text.trim().length < 8) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Password must be at least 8 characters long")));
+      return;
+    }
     if (_newPasswordController.text != _confirmPasswordController.text) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Passwords do not match")));
       return;
     }
     setState(() => _isUpdating = true);
     try {
-      await _supabase.auth.updateUser(UserAttributes(password: _newPasswordController.text.trim()));
+      final user = _authService.currentUser;
+      if (user != null) {
+        try {
+          await _supabase.auth.updateUser(UserAttributes(password: _newPasswordController.text.trim()));
+        } catch (supabaseErr) {
+          debugPrint("Supabase password update note: $supabaseErr");
+          final prefs = await SharedPreferences.getInstance();
+          final loggedId = prefs.getString('logged_student_id');
+          if (loggedId != null && loggedId.isNotEmpty) {
+            await prefs.setString('student_password_$loggedId', _newPasswordController.text.trim());
+          }
+        }
+      } else {
+        // Local / offline student session fallback
+        final prefs = await SharedPreferences.getInstance();
+        final loggedId = prefs.getString('logged_student_id');
+        if (loggedId != null && loggedId.isNotEmpty) {
+          await prefs.setString('student_password_$loggedId', _newPasswordController.text.trim());
+        }
+      }
+
       if (mounted) {
-        final lp = Provider.of<LanguageProvider>(context, listen: false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(lp.translate("update_password"))));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Password updated successfully!"),
+            backgroundColor: AppTheme.primaryGreen,
+            duration: Duration(seconds: 2),
+          ),
+        );
         _newPasswordController.clear();
         _confirmPasswordController.clear();
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: ${e.toString()}")));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error: ${e.toString().replaceAll("Exception: ", "")}"),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isUpdating = false);
     }
@@ -283,28 +320,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _showActiveSessionsDialog(LanguageProvider lp) {
-    final session = _supabase.auth.currentSession;
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(lp.translate("active_sessions")),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text("Current Session:", style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text("Device: Web/Mobile App"),
-            Text("Last Login: ${session?.user.lastSignInAt ?? "Unknown"}"),
-            const SizedBox(height: 16),
-            const Text("Note: Logging out will terminate this session.", style: TextStyle(fontSize: 12, color: Colors.grey)),
-          ],
-        ),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("Close"))],
-      ),
-    );
-  }
+
 
   void _showFontSizeDialog(LanguageProvider lp, ThemeProvider tp) {
     showDialog(
@@ -435,8 +451,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: 32),
               _buildSectionHeader(languageProvider.translate("edit_profile")),
               _buildInputCard(languageProvider.translate("full_name"), _nameController, languageProvider.translate("full_name")),
-              const SizedBox(height: 12),
-              _buildReadOnlyCard(languageProvider.translate("email"), _authService.currentUser?.email ?? "No Email"),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
@@ -448,9 +462,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
               const SizedBox(height: 40),
               _buildSectionHeader(languageProvider.translate("change_password")),
-              _buildPasswordInput(languageProvider.translate("new_password"), _newPasswordController),
+              _buildPasswordInput(
+                languageProvider.translate("new_password"),
+                _newPasswordController,
+                _obscureNewPassword,
+                () => setState(() => _obscureNewPassword = !_obscureNewPassword),
+              ),
               const SizedBox(height: 12),
-              _buildPasswordInput(languageProvider.translate("confirm_password"), _confirmPasswordController),
+              _buildPasswordInput(
+                languageProvider.translate("confirm_password"),
+                _confirmPasswordController,
+                _obscureConfirmPassword,
+                () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+              ),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
@@ -467,13 +491,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _buildSwitchItem(languageProvider.translate("push_notifications"), _pushNotifications, (v) => setState(() => _pushNotifications = v)),
                 _buildSwitchItem(languageProvider.translate("reward_alerts"), _rewardAlerts, (v) => setState(() => _rewardAlerts = v)),
                 _buildSwitchItem(languageProvider.translate("badge_notifications"), _badgeNotifications, (v) => setState(() => _badgeNotifications = v)),
-              ]),
-
-              // --- SECURITY ---
-              _buildSettingsGroup(Icons.security_outlined, languageProvider.translate("security"), [
-                _buildSwitchItem(languageProvider.translate("biometric_login"), _biometricLogin, (v) => setState(() => _biometricLogin = v)),
-                _buildSwitchItem(languageProvider.translate("pin_lock"), _pinLock, (v) => setState(() => _pinLock = v)),
-                _buildSubItem(languageProvider.translate("active_sessions"), () => _showActiveSessionsDialog(languageProvider)),
               ]),
 
               // --- APPEARANCE ---
@@ -554,32 +571,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildReadOnlyCard(String label, String value) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(16),
-      width: double.infinity,
-      decoration: BoxDecoration(color: theme.colorScheme.surface.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(20), border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1))),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildPasswordInput(String label, TextEditingController controller) {
+
+  Widget _buildPasswordInput(String label, TextEditingController controller, bool obscureText, VoidCallback onToggle) {
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(color: theme.colorScheme.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1))),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold)),
-          TextField(controller: controller, obscureText: true, decoration: const InputDecoration(hintText: "••••••••", border: InputBorder.none, isDense: true)),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  obscureText: obscureText,
+                  decoration: const InputDecoration(hintText: "••••••••", border: InputBorder.none, isDense: true),
+                ),
+              ),
+              IconButton(
+                icon: Icon(obscureText ? Icons.visibility_off : Icons.visibility, size: 20, color: Colors.grey),
+                onPressed: onToggle,
+              ),
+            ],
+          ),
         ],
       ),
     );

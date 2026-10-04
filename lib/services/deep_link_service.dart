@@ -8,6 +8,7 @@ class DeepLinkData {
   final String? binId;
   final String? voucher;
   final int? cost;
+  final String? token;
 
   DeepLinkData({
     this.type,
@@ -15,10 +16,11 @@ class DeepLinkData {
     this.binId,
     this.voucher,
     this.cost,
+    this.token,
   });
 
   bool get isDisposal =>
-      type != null && points != null && binId != null;
+      (type != null && points != null && binId != null) || token != null;
 
   bool get isVoucher =>
       voucher != null && cost != null;
@@ -64,15 +66,18 @@ class DeepLinkService {
     final bin = params['bin'];
     final voucher = params['voucher'];
     final cost = int.tryParse(params['cost'] ?? '');
+    final token = params['token'];
 
     if ((type != null && pts != null && bin != null) ||
-        (voucher != null && cost != null)) {
+        (voucher != null && cost != null) ||
+        token != null) {
       final data = DeepLinkData(
         type: type,
         points: pts,
         binId: bin,
         voucher: voucher,
         cost: cost,
+        token: token,
       );
 
       _pendingClaim = data;

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../services/auth_service.dart';
+import '../../services/database_service.dart';
 import 'widgets/history_card.dart';
 
 class HistoryScreen extends StatefulWidget {
@@ -11,6 +13,9 @@ class HistoryScreen extends StatefulWidget {
 
 class _HistoryScreenState extends State<HistoryScreen> {
   final _supabase = Supabase.instance.client;
+  final _authService = AuthService();
+  final _databaseService = DatabaseService();
+
   String selectedFilter = "All";
   Stream<List<Map<String, dynamic>>>? _historyStream;
 
@@ -39,6 +44,58 @@ class _HistoryScreenState extends State<HistoryScreen> {
     _historyStream = query;
   }
 
+  Widget _buildHistoryList(ThemeData theme, List<Map<String, dynamic>> rawItems) {
+    var items = List<Map<String, dynamic>>.from(rawItems);
+
+    if (selectedFilter != "All") {
+      items = items.where((item) {
+        final type = item['waste_type']?.toString().toLowerCase() ?? "";
+        final isRecyclable = type.contains('bottle') ||
+            type.contains('paper') ||
+            type.contains('metal') ||
+            type.contains('can') ||
+            type.contains('glass');
+
+        if (selectedFilter == "Recyclable") return isRecyclable;
+        if (selectedFilter == "Non-Biodegradable") return !isRecyclable;
+        return true;
+      }).toList();
+    }
+
+    if (items.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              "No disposal history recorded yet.",
+              style: theme.textTheme.headlineSmall?.copyWith(
+                color: Colors.grey,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final item = items[index];
+        final dateObj = DateTime.tryParse(item['created_at'].toString()) ?? DateTime.now();
+
+        return HistoryCard(
+          wasteType: item['waste_type'] ?? "Disposal Record",
+          points: "+${item['points_earned'] ?? 10} Points",
+          date: "${dateObj.month}/${dateObj.day}/${dateObj.year}",
+          time: "${dateObj.hour}:${dateObj.minute.toString().padLeft(2, '0')}",
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -64,6 +121,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ],
               ),
               const SizedBox(height: 24),
+
               // FILTERS
               Wrap(
                 spacing: 10,
@@ -106,73 +164,24 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 child: StreamBuilder<List<Map<String, dynamic>>>(
                   stream: _historyStream,
                   builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-                    
-                    if (snapshot.connectionState == ConnectionState.none && _historyStream == null) {
-                      return const Center(child: Text("Unable to load history."));
+                    if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                      return _buildHistoryList(theme, snapshot.data!);
                     }
 
-                    if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                      return Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(20.0),
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              "No history found.",
-                              style: theme.textTheme.headlineSmall?.copyWith(
-                                color: Colors.grey,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    }
-
-                    var items = snapshot.data!;
-                    if (selectedFilter != "All") {
-                      items = items.where((item) {
-                        final type = item['waste_type']?.toString().toLowerCase() ?? "";
-                        final isRecyclable = type.contains('bottle') || type.contains('paper') || type.contains('metal') || type.contains('can') || type.contains('glass');
-                        
-                        if (selectedFilter == "Recyclable") return isRecyclable;
-                        if (selectedFilter == "Non-Biodegradable") return !isRecyclable;
-                        return true;
-                      }).toList();
-                    }
-
-                    if (items.isEmpty) {
-                      return Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(20.0),
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              "No matching history found.",
-                              style: theme.textTheme.headlineSmall?.copyWith(
-                                color: Colors.grey,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    }
-
-                    return ListView.builder(
-                      itemCount: items.length,
-                      itemBuilder: (context, index) {
-                        final item = items[index];
-                        final dateObj = DateTime.parse(item['created_at']);
-                        
-                        return HistoryCard(
-                          wasteType: item['waste_type'] ?? "Unknown",
-                          points: "+${item['points_earned']} Points",
-                          date: "${dateObj.month}/${dateObj.day}/${dateObj.year}",
-                          time: "${dateObj.hour}:${dateObj.minute.toString().padLeft(2, '0')}",
+                    // Fallback to local history for offline support
+                    return FutureBuilder<String>(
+                      future: _authService.getEffectiveUserId(),
+                      builder: (context, userSnapshot) {
+                        final userId = userSnapshot.data ?? 'student_local';
+                        return FutureBuilder<List<Map<String, dynamic>>>(
+                          future: _databaseService.getLocalDisposalHistory(userId),
+                          builder: (context, localSnapshot) {
+                            if (localSnapshot.connectionState == ConnectionState.waiting) {
+                              return const Center(child: CircularProgressIndicator());
+                            }
+                            final list = localSnapshot.data ?? [];
+                            return _buildHistoryList(theme, list);
+                          },
                         );
                       },
                     );

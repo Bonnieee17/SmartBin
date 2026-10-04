@@ -19,104 +19,172 @@ class _BinLcdScreenState extends State<BinLcdScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF1A1A1A),
       body: StreamBuilder<List<Map<String, dynamic>>>(
-        stream: _databaseService.getBinsStream(),
+        stream: _databaseService.getLatestUnclaimedSession(widget.binId),
         builder: (context, snapshot) {
-          final bins = snapshot.data ?? [];
-          final binData = bins.firstWhere(
-            (b) => b['id'] == widget.binId,
-            orElse: () => {'status': 'Waiting for item...', 'color': 'FF9E9E9E', 'qr_data': ''},
-          );
+          final sessions = snapshot.data ?? [];
+          final latestSession = sessions.isNotEmpty ? sessions.first : null;
 
-          final String status = binData['status'] ?? "Waiting for item...";
-          final String qrData = binData['qr_data'] ?? "";
-          final Color statusColor = Color(int.parse(binData['color'] ?? "FF9E9E9E", radix: 16));
+          bool isSessionActive = false;
+          if (latestSession != null) {
+            final expiresAt = DateTime.parse(latestSession['expires_at']);
+            if (expiresAt.isAfter(DateTime.now())) {
+              isSessionActive = true;
+            }
+          }
 
-          // If no dynamic QR data (no drop detected), show the APP DOWNLOAD QR
-          final String displayQrData = qrData.isNotEmpty ? qrData : AppConstants.downloadPage;
-          final String instructionText = qrData.isNotEmpty ? "SCAN TO CLAIM POINTS" : "INSTALL THIS APP FOR A BETTER EXPERIENCE";
+          if (isSessionActive) {
+            final String token = latestSession!['token'];
+            final String qrData = "${AppConstants.claimPage}?token=$token";
+            final String wasteType = latestSession['waste_type'];
+            final int points = latestSession['points'];
+            final DateTime expiresAt = DateTime.parse(latestSession['expires_at']);
 
-          return Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // App Icon at the top
-                  Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white10, width: 2),
-                    ),
-                    child: ClipOval(
-                      child: Image.asset(
-                        'assets/images/logo.png',
-                        height: 80,
-                        width: 80,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  
-                  Text(
-                    status.toUpperCase(),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: qrData.isNotEmpty ? statusColor : Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 24,
-                      letterSpacing: 3,
-                    ),
-                  ),
-                  const SizedBox(height: 48),
-                  
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(30),
-                      boxShadow: [
-                        BoxShadow(
-                          color: (qrData.isNotEmpty ? statusColor : Colors.green).withOpacity(0.3),
-                          blurRadius: 30,
-                          spreadRadius: 5,
-                        ),
-                      ],
-                    ),
-                    child: QrImageView(
-                      data: displayQrData,
-                      version: QrVersions.auto,
-                      size: 300,
-                      embeddedImage: const AssetImage('assets/images/logo.png'),
-                      embeddedImageStyle: const QrEmbeddedImageStyle(
-                        size: Size(60, 60),
-                      ),
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 60),
-                  const Text(
-                    "SMARTBIN OS v2.0 • OFFICIAL INTERFACE",
-                    style: TextStyle(
-                      color: Colors.white24,
-                      fontSize: 12,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    instructionText,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+            return _buildRewardUI(qrData, wasteType, points, expiresAt);
+          }
+
+          return _buildDefaultUI();
+        },
+      ),
+    );
+  }
+
+  Widget _buildRewardUI(String qrData, String wasteType, int points, DateTime expiresAt) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Badge(
+              label: Text("REWARD ACTIVE", style: TextStyle(fontWeight: FontWeight.bold)),
+              backgroundColor: Colors.orange,
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              wasteType.toUpperCase(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.greenAccent,
+                fontWeight: FontWeight.bold,
+                fontSize: 28,
+                letterSpacing: 2,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "+$points ECO POINTS",
+              style: const TextStyle(color: Colors.white70, fontSize: 18, fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 40),
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.orange.withOpacity(0.4),
+                    blurRadius: 40,
+                    spreadRadius: 10,
                   ),
                 ],
               ),
+              child: QrImageView(
+                data: qrData,
+                version: QrVersions.auto,
+                size: 280,
+                embeddedImage: const AssetImage('assets/images/logo.png'),
+                embeddedImageStyle: const QrEmbeddedImageStyle(size: Size(60, 60)),
+              ),
             ),
-          );
-        },
+            const SizedBox(height: 40),
+            TweenAnimationBuilder<Duration>(
+              duration: expiresAt.difference(DateTime.now()),
+              tween: Tween(begin: expiresAt.difference(DateTime.now()), end: Duration.zero),
+              onEnd: () => setState(() {}),
+              builder: (context, value, child) {
+                final seconds = value.inSeconds;
+                return Column(
+                  children: [
+                    Text(
+                      "SCAN TO CLAIM IN ${seconds}S",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: 200,
+                      child: LinearProgressIndicator(
+                        value: seconds / 30,
+                        backgroundColor: Colors.white10,
+                        color: Colors.orange,
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDefaultUI() {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.asset('assets/images/logo.png', height: 80, width: 80),
+            const SizedBox(height: 32),
+            const Text(
+              "READY FOR DISPOSAL",
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 24,
+                letterSpacing: 3,
+              ),
+            ),
+            const SizedBox(height: 48),
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.green.withOpacity(0.2),
+                    blurRadius: 30,
+                    spreadRadius: 5,
+                  ),
+                ],
+              ),
+              child: QrImageView(
+                data: AppConstants.downloadPage,
+                version: QrVersions.auto,
+                size: 300,
+              ),
+            ),
+            const SizedBox(height: 60),
+            const Text(
+              "SMARTBIN OS v2.0 • STANDBY",
+              style: TextStyle(color: Colors.white24, fontSize: 12, letterSpacing: 2),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              "INSTALL APP TO START EARNING",
+              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
       ),
     );
   }
