@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SmartBin - Install App</title>
+    <title>SmartBin - Download App</title>
     <style>
         * { box-sizing: border-box; }
         body {
@@ -122,9 +122,10 @@
         .status-msg {
             margin-top: 12px;
             font-size: 13px;
-            font-weight: 700;
+            font-weight: 600;
             color: #2e7d32;
-            min-height: 18px;
+            min-height: 22px;
+            line-height: 1.4;
         }
 
         .steps {
@@ -181,18 +182,18 @@
 <!-- POPUP MODAL OVERLAY -->
 <div class="modal-overlay" id="modalOverlay">
     <div class="modal-card">
-        <div class="badge-tag">📱 OFFICIAL APP REQUIRED</div>
+        <div class="badge-tag">📱 OFFICIAL ANDROID APP</div>
         <br>
         <img src="/favicon.png" class="logo" alt="SmartBin Logo">
-        <h1>Install This App</h1>
+        <h1>Install SmartBin</h1>
         <p class="subtitle">
             Install this app for a better experience.<br>
-            Earn points, claim rewards, and help keep our community clean.
+            Earn points, claim rewards, and keep our community clean.
         </p>
 
         <a id="downloadBtn" class="download-button" href="/app-release.apk" download="SmartBin.apk">
-            <span>📥</span>
-            <span id="btnText">INSTALL / DOWNLOAD APP</span>
+            <span>📱</span>
+            <span id="btnText">Download SmartBin App</span>
         </a>
 
         <div id="statusMsg" class="status-msg">Starting download automatically in 1.2s...</div>
@@ -201,7 +202,7 @@
             <h3>📋 How to Install on Android</h3>
             <div class="step-item">
                 <span class="step-num">1</span>
-                <span>Tap <strong>INSTALL / DOWNLOAD APP</strong> above to download the APK.</span>
+                <span>Tap <strong>Download SmartBin App</strong> above.</span>
             </div>
             <div class="step-item">
                 <span class="step-num">2</span>
@@ -230,9 +231,10 @@
         if (isDownloading) return;
         isDownloading = true;
 
-        btnText.textContent = "DOWNLOADING APK...";
-        statusMsg.textContent = "✓ Download started! Check your notification bar.";
+        btnText.textContent = "DOWNLOADING APP...";
+        statusMsg.textContent = "⏳ Downloading SmartBin App (APK)... Please wait.";
 
+        // Trigger file download
         const tempLink = document.createElement('a');
         tempLink.href = '/app-release.apk';
         tempLink.download = 'SmartBin.apk';
@@ -240,10 +242,12 @@
         tempLink.click();
         document.body.removeChild(tempLink);
 
+        // Completion Notification after 3 seconds
         setTimeout(() => {
             btnText.textContent = "DOWNLOAD AGAIN";
+            statusMsg.innerHTML = "✅ <b>Download Complete!</b> Check your browser notification bar or Downloads folder to install SmartBin.";
             isDownloading = false;
-        }, 4000);
+        }, 3000);
     }
 
     btn.addEventListener('click', (e) => {

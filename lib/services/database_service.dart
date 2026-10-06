@@ -326,9 +326,9 @@ class DatabaseService {
     // 1. Deduct points locally & remotely
     await deductPointsLocallyAndRemote(userId, pointsCost);
 
-    // 2. Create unique SmartBin Digital Identifier (e.g. SB-UID-89F0A1)
-    final codeHash = _generateRandomToken().substring(0, 8).toUpperCase();
-    final voucherCode = "SB-UID-$codeHash";
+    // 2. Create unique SmartBin Digital Identifier (e.g. SB-PSITS-89F0A1)
+    final codeHash = _generateRandomToken().substring(0, 6).toUpperCase();
+    final voucherCode = "SB-PSITS-$codeHash";
     final now = DateTime.now();
     final expires = now.add(Duration(days: validityDays));
 

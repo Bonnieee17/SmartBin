@@ -46,7 +46,14 @@ class _RewardsScreenState extends State<RewardsScreen> {
     return lp.translate("recycling_champion");
   }
 
-  Future<void> _confirmRedeem(String rewardName, int pointsCost) async {
+  Future<void> _confirmRedeem(String rewardName, int pointsCost, int userPoints) async {
+    if (userPoints < 200) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Minimum redemption is ₱20.00 (200 points). Points below ₱20 are pending to earn!")),
+      );
+      return;
+    }
+
     final user = _supabase.auth.currentUser;
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -466,6 +473,19 @@ class _RewardsScreenState extends State<RewardsScreen> {
                     "$userPoints ${languageProvider.translate("points")} available",
                     style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary),
                   ),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.amber.withOpacity(0.4)),
+                    ),
+                    child: Text(
+                      "Estimated Value: ₱${(userPoints / 10).toStringAsFixed(2)} (10 Pts = ₱1.00)",
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFFB78103)),
+                    ),
+                  ),
                   const SizedBox(height: 24),
                   
                   // BADGES ROW (Adaptive)
@@ -489,6 +509,40 @@ class _RewardsScreenState extends State<RewardsScreen> {
                     style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold, color: theme.textTheme.bodySmall?.color, letterSpacing: 1),
                   ),
                   const SizedBox(height: 16),
+
+                  if (userPoints < 200) ...[
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.orange.withOpacity(0.4)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.hourglass_empty_rounded, color: Colors.orange, size: 28),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  "Pending Points to Earn",
+                                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange, fontSize: 14),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  "You have ₱${(userPoints / 10).toStringAsFixed(2)} ($userPoints pts). Reach at least ₱20.00 (200 pts) to unlock voucher redemption and claim at PSITS Office.",
+                                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   
                   StreamBuilder<List<Map<String, dynamic>>>(
                     stream: _rewardsStream,
@@ -502,17 +556,26 @@ class _RewardsScreenState extends State<RewardsScreen> {
                       return Column(
                         children: rewardsSnapshot.data!.map((reward) {
                           final cost = reward['points_required'] ?? 0;
-                          final canRedeem = userPoints >= cost;
+                          final hasReachedMinThreshold = userPoints >= 200;
+                          final canRedeem = hasReachedMinThreshold && (userPoints >= cost);
                           final name = reward['reward_name'] ?? 'Reward';
+
+                          String actionText = "Redeem";
+                          if (!hasReachedMinThreshold) {
+                            actionText = "Pending (< ₱20)";
+                          } else if (!canRedeem) {
+                            actionText = "Locked";
+                          }
+
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 12),
                             child: _buildRedeemItem(
                               theme,
                               name, 
                               "$cost pts", 
-                              canRedeem ? "Redeem" : "Locked", 
+                              actionText, 
                               isLocked: !canRedeem,
-                              onTap: canRedeem ? () => _confirmRedeem(name, cost) : null,
+                              onTap: canRedeem ? () => _confirmRedeem(name, cost, userPoints) : null,
                             ),
                           );
                         }).toList(),
