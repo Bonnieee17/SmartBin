@@ -193,7 +193,7 @@
 
         <a id="downloadBtn" class="download-button" href="/app-release.apk" download="SmartBin.apk">
             <span>📱</span>
-            <span id="btnText">Download SmartBin App</span>
+            <span id="btnText">Download SMARTBIN APK</span>
         </a>
 
         <div id="statusMsg" class="status-msg">Starting download automatically in 1.2s...</div>
@@ -202,7 +202,7 @@
             <h3>📋 How to Install on Android</h3>
             <div class="step-item">
                 <span class="step-num">1</span>
-                <span>Tap <strong>Download SmartBin App</strong> above.</span>
+                <span>Tap <strong>Download SMARTBIN APK</strong> above.</span>
             </div>
             <div class="step-item">
                 <span class="step-num">2</span>
@@ -231,8 +231,8 @@
         if (isDownloading) return;
         isDownloading = true;
 
-        btnText.textContent = "DOWNLOADING APP...";
-        statusMsg.textContent = "⏳ Downloading SmartBin App (APK)... Please check your notification bar.";
+        btnText.textContent = "DOWNLOADING SMARTBIN...";
+        statusMsg.textContent = "⏳ Downloading SMARTBIN APK... Please check your notification bar.";
 
         // Trigger file download
         const tempLink = document.createElement('a');
@@ -242,10 +242,10 @@
         tempLink.click();
         document.body.removeChild(tempLink);
 
-        // Completion Notification (Stay on download success screen so user can install the APK)
+        // Completion Notification
         setTimeout(() => {
             btnText.textContent = "DOWNLOAD AGAIN";
-            statusMsg.innerHTML = "✅ <b>Download Complete!</b><br><span style='font-size:11px; color:#1b5e20;'>Tap the downloaded APK file in your notification bar or Downloads folder to install SmartBin.</span>";
+            statusMsg.innerHTML = "✅ <b>Download Complete!</b><br><span style='font-size:11px; color:#1b5e20;'>Tap the downloaded SMARTBIN APK in your notification bar or Downloads folder to install.</span>";
             isDownloading = false;
         }, 3000);
     }
