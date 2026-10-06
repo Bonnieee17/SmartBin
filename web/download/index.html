@@ -242,11 +242,16 @@
         tempLink.click();
         document.body.removeChild(tempLink);
 
-        // Completion Notification after 3 seconds
+        // Completion Notification & Auto-open website after download
         setTimeout(() => {
-            btnText.textContent = "DOWNLOAD AGAIN";
-            statusMsg.innerHTML = "✅ <b>Download Complete!</b> Check your browser notification bar or Downloads folder to install SmartBin.";
+            btnText.textContent = "OPENING SMARTBIN...";
+            statusMsg.innerHTML = "✅ <b>Download Complete!</b> Opening SmartBin website...";
             isDownloading = false;
+
+            // Automatically open/redirect to the main SmartBin website after download
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 1500);
         }, 3000);
     }
 
