@@ -1852,20 +1852,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
                               elevation: 0,
                             ),
                           ),
-
-                          ElevatedButton
-                              .icon(
-                            onPressed: () {},
-                            icon:
-                            const Icon(
-                              Icons
-                                  .file_download_outlined,
-                            ),
-                            label:
-                            const Text(
-                              "Export Analytics",
-                            ),
-                          ),
                         ],
                       ),
                     ],

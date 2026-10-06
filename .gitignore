@@ -50,3 +50,5 @@ node_modules/
 
 # Local artifacts
 .artifacts/
+.vercel
+.env*.local

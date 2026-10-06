@@ -2,184 +2,203 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-
-    <meta
-            name="viewport"
-            content="width=device-width, initial-scale=1.0"
-    >
-
-    <title>SmartBin - Download</title>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartBin - Install App</title>
     <style>
-        * {
-            box-sizing: border-box;
-        }
-
+        * { box-sizing: border-box; }
         body {
             margin: 0;
             min-height: 100vh;
-
             display: flex;
             justify-content: center;
             align-items: center;
-
             padding: 20px;
-
-            font-family:
-                Arial,
-                Helvetica,
-                sans-serif;
-
-            background:
-                linear-gradient(
-                    135deg,
-                    #e8f5e9,
-                    #c8e6c9
-                );
-
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
             color: #1b5e20;
         }
-
         .card {
             width: 100%;
-            max-width: 430px;
-
+            max-width: 420px;
             background: white;
-
-            padding: 40px 30px;
-
+            padding: 35px 25px;
             border-radius: 24px;
-
             text-align: center;
-
-            box-shadow:
-                0 15px 40px
-                rgba(0, 0, 0, 0.15);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
         }
-
         .logo {
-            width: 100px;
-            height: 100px;
-
-            margin-bottom: 20px;
-
+            width: 90px;
+            height: 90px;
+            margin-bottom: 15px;
             border-radius: 20px;
+            object-fit: cover;
         }
-
         h1 {
             margin: 0;
-
-            font-size: 32px;
-
+            font-size: 28px;
             color: #2e7d32;
         }
-
         .subtitle {
             margin-top: 10px;
-
-            font-size: 16px;
-
-            line-height: 1.6;
-
-            color: #666;
-        }
-
-        .download-button {
-            display: block;
-
-            margin-top: 30px;
-
-            padding: 16px;
-
-            background: #2e7d32;
-
-            color: white;
-
-            text-decoration: none;
-
-            font-size: 17px;
-
-            font-weight: bold;
-
-            border-radius: 12px;
-
-            transition:
-                background 0.2s,
-                transform 0.2s;
-        }
-
-        .download-button:hover {
-            background: #1b5e20;
-
-            transform: translateY(-2px);
-        }
-
-        .note {
-            margin-top: 25px;
-
-            padding: 15px;
-
-            background: #f5f5f5;
-
-            border-radius: 12px;
-
-            font-size: 13px;
-
+            font-size: 15px;
             line-height: 1.5;
-
-            color: #666;
+            color: #555;
         }
-
+        .download-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 25px;
+            padding: 16px 20px;
+            background: #2e7d32;
+            color: white;
+            text-decoration: none;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 14px;
+            box-shadow: 0 4px 15px rgba(46, 125, 50, 0.3);
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border: none;
+            width: 100%;
+        }
+        .download-button:active {
+            transform: scale(0.98);
+            background: #1b5e20;
+        }
+        .steps {
+            margin-top: 25px;
+            text-align: left;
+            background: #f4fbf4;
+            border: 1px solid #a5d6a7;
+            border-radius: 16px;
+            padding: 18px;
+        }
+        .steps h3 {
+            margin: 0 0 12px 0;
+            font-size: 15px;
+            color: #2e7d32;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .step-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin-bottom: 10px;
+            font-size: 13px;
+            color: #333;
+            line-height: 1.4;
+        }
+        .step-item:last-child {
+            margin-bottom: 0;
+        }
+        .step-num {
+            background: #2e7d32;
+            color: white;
+            font-weight: bold;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
         .footer {
             margin-top: 25px;
-
             font-size: 12px;
-
-            color: #999;
+            color: #888;
+        }
+        .status-msg {
+            margin-top: 12px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #2e7d32;
+            min-height: 18px;
         }
     </style>
 </head>
-
 <body>
 
 <div class="card">
-
     <img src="/favicon.png" class="logo" alt="SmartBin Logo">
-
     <h1>Install SmartBin</h1>
-
     <p class="subtitle">
-        Install This App for a Better Experience.
-        Scan, dispose, earn points, and help
-        keep our community clean.
+        Install this app for a better experience.<br>
+        Earn points, claim rewards, and keep our community clean.
     </p>
 
-    <a
-            class="download-button"
-            href="/app-release.apk"
-    >
-        📱 Download SmartBin App
+    <a id="downloadBtn" class="download-button" href="/app-release.apk" download="SmartBin.apk">
+        <span>📥</span>
+        <span id="btnText">INSTALL / DOWNLOAD APP</span>
     </a>
 
-    <div class="note">
-        This application is currently available
-        for Android devices.
-        <br><br>
-        If your phone asks for permission to
-        install the APK, allow installation from
-        your browser or file manager.
+    <div id="statusMsg" class="status-msg"></div>
+
+    <div class="steps">
+        <h3>📋 How to Install on Android</h3>
+        <div class="step-item">
+            <span class="step-num">1</span>
+            <span>Tap <strong>INSTALL / DOWNLOAD APP</strong> above to download the APK file.</span>
+        </div>
+        <div class="step-item">
+            <span class="step-num">2</span>
+            <span>When finished, tap <strong>Open</strong> in your browser notifications.</span>
+        </div>
+        <div class="step-item">
+            <span class="step-num">3</span>
+            <span>If prompted, tap <strong>Settings</strong> and allow <em>"Install from this source"</em>.</span>
+        </div>
     </div>
 
     <div class="footer">
-        © 2026 SmartBin
+        © 2026 SmartBin • Official Mobile App
     </div>
-
 </div>
 
 <script>
-    // BLOCK ALL PWA PROMPTS
-    window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
+    const btn = document.getElementById('downloadBtn');
+    const btnText = document.getElementById('btnText');
+    const statusMsg = document.getElementById('statusMsg');
+
+    let isDownloading = false;
+
+    function triggerDownload() {
+        if (isDownloading) return;
+        isDownloading = true;
+
+        btnText.textContent = "DOWNLOADING APK...";
+        statusMsg.textContent = "✓ Download started! Check your notification bar.";
+
+        // Direct download trigger
+        const tempLink = document.createElement('a');
+        tempLink.href = '/app-release.apk';
+        tempLink.download = 'SmartBin.apk';
+        document.body.appendChild(tempLink);
+        tempLink.click();
+        document.body.removeChild(tempLink);
+
+        setTimeout(() => {
+            btnText.textContent = "DOWNLOAD AGAIN";
+            isDownloading = false;
+        }, 4000);
+    }
+
+    btn.addEventListener('click', (e) => {
+        triggerDownload();
+    });
+
+    // Instant Auto-Download: Automatically triggers after 1.2 seconds (1200ms)
+    window.addEventListener('load', () => {
+        setTimeout(() => {
+            statusMsg.textContent = "Starting download automatically...";
+            triggerDownload();
+        }, 1200);
     });
 </script>
 
