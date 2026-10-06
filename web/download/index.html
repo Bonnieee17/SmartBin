@@ -191,7 +191,7 @@
             Earn points, claim rewards, and keep our community clean.
         </p>
 
-        <a id="downloadBtn" class="download-button" href="/app-release.apk" download="SmartBin.apk">
+        <a id="downloadBtn" class="download-button" href="https://github.com/Bonnieee17/SmartBin/releases/latest/download/smartbin.apk" download="SmartBin.apk">
             <span>📱</span>
             <span id="btnText">Download SMARTBIN APK</span>
         </a>
@@ -221,6 +221,8 @@
 </div>
 
 <script>
+    const APK_URL = 'https://github.com/Bonnieee17/SmartBin/releases/latest/download/smartbin.apk';
+
     const btn = document.getElementById('downloadBtn');
     const btnText = document.getElementById('btnText');
     const statusMsg = document.getElementById('statusMsg');
@@ -236,7 +238,7 @@
 
         // Trigger file download
         const tempLink = document.createElement('a');
-        tempLink.href = '/app-release.apk';
+        tempLink.href = APK_URL;
         tempLink.download = 'SmartBin.apk';
         document.body.appendChild(tempLink);
         tempLink.click();
@@ -251,6 +253,7 @@
     }
 
     btn.addEventListener('click', (e) => {
+        e.preventDefault(); // stop the link from also downloading (avoids a double download)
         triggerDownload();
     });
 
