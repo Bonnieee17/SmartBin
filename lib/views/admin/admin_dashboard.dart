@@ -216,6 +216,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       Icons.qr_code_2_outlined,
                       "Vouchers",
                     ),
+                    _buildSidebarItem(
+                      8,
+                      Icons.phone_android,
+                      "App Download",
+                    ),
                   ],
                 ),
               ),
@@ -283,6 +288,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
       case 7:
         return _buildVoucherGenerator();
 
+      case 8:
+        return _buildAppDownloadView();
+
       default:
         return Center(
           child: Text(
@@ -299,6 +307,69 @@ class _AdminDashboardState extends State<AdminDashboard> {
   // ============================================================
   // VOUCHER GENERATOR
   // ============================================================
+
+  Widget _buildAppDownloadView() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(isMobile ? 20 : 40),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "SmartBin Mobile App Download",
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            "Scan the QR code below using any mobile device to download and install the official SmartBin release APK.",
+            style: TextStyle(color: Colors.grey),
+          ),
+          const SizedBox(height: 32),
+          Center(
+            child: Container(
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: Colors.grey.withOpacity(0.15)),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 15, offset: const Offset(0, 5)),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.phone_android, size: 48, color: AppTheme.primaryGreen),
+                  const SizedBox(height: 16),
+                  const Text(
+                    "Scan to Download APK",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 24),
+                  QrImageView(
+                    data: "https://tinyurl.com/mt9hbmj8",
+                    version: QrVersions.auto,
+                    size: 220.0,
+                    backgroundColor: Colors.white,
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    "https://tinyurl.com/mt9hbmj8",
+                    style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildVoucherGenerator() {
     final screenWidth =
