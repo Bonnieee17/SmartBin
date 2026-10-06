@@ -124,7 +124,7 @@
             font-size: 13px;
             font-weight: 600;
             color: #2e7d32;
-            min-height: 22px;
+            min-height: 28px;
             line-height: 1.4;
         }
 
@@ -232,7 +232,7 @@
         isDownloading = true;
 
         btnText.textContent = "DOWNLOADING APP...";
-        statusMsg.textContent = "⏳ Downloading SmartBin App (APK)... Please wait.";
+        statusMsg.textContent = "⏳ Downloading SmartBin App (APK)... Please check your notification bar.";
 
         // Trigger file download
         const tempLink = document.createElement('a');
@@ -242,16 +242,11 @@
         tempLink.click();
         document.body.removeChild(tempLink);
 
-        // Completion Notification & Auto-open website after download
+        // Completion Notification (Stay on download success screen so user can install the APK)
         setTimeout(() => {
-            btnText.textContent = "OPENING SMARTBIN...";
-            statusMsg.innerHTML = "✅ <b>Download Complete!</b> Opening SmartBin website...";
+            btnText.textContent = "DOWNLOAD AGAIN";
+            statusMsg.innerHTML = "✅ <b>Download Complete!</b><br><span style='font-size:11px; color:#1b5e20;'>Tap the downloaded APK file in your notification bar or Downloads folder to install SmartBin.</span>";
             isDownloading = false;
-
-            // Automatically open/redirect to the main SmartBin website after download
-            setTimeout(() => {
-                window.location.href = '/';
-            }, 1500);
         }, 3000);
     }
 
