@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/database_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/providers/language_provider.dart';
+import '../../core/widgets/theme_toggle_button.dart';
 import '../../models/voucher_model.dart';
 
 class RewardsScreen extends StatefulWidget {
@@ -193,23 +194,29 @@ class _RewardsScreenState extends State<RewardsScreen> {
 
                 const SizedBox(height: 16),
 
-                // QR Code Display
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4)),
-                    ],
-                  ),
-                  child: QrImageView(
-                    data: voucher.code,
-                    version: QrVersions.auto,
-                    size: 160.0,
-                    embeddedImage: const AssetImage('assets/images/logo.png'),
-                    embeddedImageStyle: const QrEmbeddedImageStyle(size: Size(30, 30)),
-                  ),
+                // QR Code Display using Secure Token
+                FutureBuilder<String?>(
+                  future: _databaseService.getVoucherToken(voucher.id),
+                  builder: (context, snapshot) {
+                    final qrData = snapshot.data ?? voucher.code;
+                    return Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4)),
+                        ],
+                      ),
+                      child: QrImageView(
+                        data: qrData,
+                        version: QrVersions.auto,
+                        size: 160.0,
+                        embeddedImage: const AssetImage('assets/images/logo.png'),
+                        embeddedImageStyle: const QrEmbeddedImageStyle(size: Size(30, 30)),
+                      ),
+                    );
+                  },
                 ),
 
                 const SizedBox(height: 16),
@@ -456,15 +463,21 @@ class _RewardsScreenState extends State<RewardsScreen> {
                           ),
                         ],
                       ),
-                      OutlinedButton.icon(
-                        onPressed: _showMyVouchersModal,
-                        icon: const Icon(Icons.confirmation_number_outlined, size: 18),
-                        label: const Text("My Claim Tickets", style: TextStyle(fontSize: 12)),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppTheme.primaryGreen,
-                          side: const BorderSide(color: AppTheme.primaryGreen),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
+                      Row(
+                        children: [
+                          const ThemeToggleIconButton(),
+                          const SizedBox(width: 8),
+                          OutlinedButton.icon(
+                            onPressed: _showMyVouchersModal,
+                            icon: const Icon(Icons.confirmation_number_outlined, size: 18),
+                            label: const Text("My Claim Tickets", style: TextStyle(fontSize: 12)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: theme.colorScheme.primary,
+                              side: BorderSide(color: theme.colorScheme.primary),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),

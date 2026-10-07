@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../services/database_service.dart';
 import '../../services/auth_service.dart';
-import '../../models/voucher_model.dart';
 import '../../core/theme/app_theme.dart';
 
 class ScannerScreen extends StatefulWidget {
@@ -33,19 +32,27 @@ class _ScannerScreenState extends State<ScannerScreen> {
     try {
       final userId = await _authService.getEffectiveUserId();
 
-      // 1. --- DIGITAL UNIQUE IDENTIFIER PASS SCAN (e.g. SB-UID-XXXXXX) ---
-      if (code.toUpperCase().startsWith('SB-UID-') || code.startsWith('vch_')) {
-        try {
-          final VoucherModel updatedVoucher = await _databaseService.claimVoucherInOffice(code);
-          if (mounted) {
-            _showVoucherClaimedDialog(updatedVoucher);
-          }
-        } catch (e) {
-          if (mounted) {
-            _showErrorDialog(e.toString().replaceAll("Exception: ", ""));
+      // 1. --- SECURE VOUCHER TOKEN SCAN ---
+      try {
+        final result = await _databaseService.claimVoucherInOffice(
+          code,
+          redeemedBy: userId,
+          redemptionLocation: 'PSITS Office',
+        );
+        final success = result['success'] == true;
+        final status = result['status']?.toString().toUpperCase() ?? 'INVALID';
+        final message = result['message']?.toString() ?? (success ? "Voucher successfully redeemed!" : "Voucher verification failed.");
+
+        if (mounted) {
+          if (success && (status == 'REDEEMED' || status == 'AVAILABLE')) {
+            _showVoucherClaimedDialog(result);
+          } else {
+            _showErrorDialog(message);
           }
         }
         return;
+      } catch (_) {
+        // If not a secure voucher token, proceed to disposal or other formats
       }
 
       // 2. --- CHECK IF IT'S A VOUCHER REDEMPTION SCAN (e.g. voucher:Printing Credit:100) ---
@@ -85,7 +92,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
           userId: userId,
           binId: binId,
           wasteType: wasteName,
-          weight: 0.1,
           points: points,
         );
 
@@ -111,7 +117,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
         userId: userId,
         binId: binId,
         wasteType: wasteName,
-        weight: 0.5,
         points: pts,
       );
 
@@ -127,24 +132,24 @@ class _ScannerScreenState extends State<ScannerScreen> {
     }
   }
 
-  void _showVoucherClaimedDialog(VoucherModel voucher) {
+  void _showVoucherClaimedDialog(Map<String, dynamic> result) {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         icon: const Icon(Icons.verified, color: Colors.blue, size: 60),
-        title: const Text("Pass Verified & Claimed"),
+        title: const Text("Voucher Verified & Redeemed"),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text("Code: ${voucher.code}", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+            Text("Code: ${result['voucher_code'] ?? 'N/A'}", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
             const SizedBox(height: 8),
-            Text(voucher.rewardName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            Text(result['reward_name'] ?? 'Reward Voucher', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8)),
-              child: const Text("Status: CLAIMED AT PSITS OFFICE", style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 12)),
+              child: const Text("Status: REDEEMED AT PSITS OFFICE", style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 12)),
             ),
           ],
         ),

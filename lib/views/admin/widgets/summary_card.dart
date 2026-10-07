@@ -14,12 +14,13 @@ class SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
+        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.15)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -30,7 +31,7 @@ class SummaryCard extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: Text(
               title,
-              style: const TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.w500),
+              style: TextStyle(color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7) ?? Colors.grey, fontSize: 13, fontWeight: FontWeight.w500),
             ),
           ),
           const SizedBox(height: 8),
@@ -41,7 +42,7 @@ class SummaryCard extends StatelessWidget {
                 fit: BoxFit.scaleDown,
                 child: Text(
                   value,
-                  style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: theme.textTheme.bodyLarge?.color),
                 ),
               ),
             ),
@@ -52,7 +53,7 @@ class SummaryCard extends StatelessWidget {
               fit: BoxFit.scaleDown,
               child: Text(
                 subtitle!,
-                style: const TextStyle(color: Color(0xFF2E7D32), fontSize: 11, fontWeight: FontWeight.w600),
+                style: TextStyle(color: theme.colorScheme.primary, fontSize: 11, fontWeight: FontWeight.w600),
               ),
             ),
           ],

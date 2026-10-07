@@ -59,7 +59,6 @@ class _ClaimPointsDialogState extends State<ClaimPointsDialog> {
           userId: user.id,
           binId: widget.binId,
           wasteType: widget.wasteType,
-          weight: 0.1,
           points: widget.points,
         );
         if (mounted) {

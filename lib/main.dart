@@ -25,7 +25,7 @@ void main() async {
   final isAdminBypass = prefs.getBool('is_admin_bypass') ?? false;
 
   String initialRoute = AppRoutes.login;
-  
+
   if (isAdminBypass && rememberMe) {
     initialRoute = AppRoutes.admin;
   }
@@ -54,10 +54,14 @@ class MyApp extends StatelessWidget {
 
             theme: AppTheme.getLightTheme(
               highContrast: themeProvider.highContrast,
+              reduceMotion: themeProvider.reduceMotion,
             ),
+
             darkTheme: AppTheme.getDarkTheme(
               highContrast: themeProvider.highContrast,
+              reduceMotion: themeProvider.reduceMotion,
             ),
+
             themeMode: themeProvider.themeMode,
 
             builder: (context, child) {

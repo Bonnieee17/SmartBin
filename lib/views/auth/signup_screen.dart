@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/auth_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/theme_toggle_button.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -146,7 +147,7 @@ class _SignupScreenState extends State<SignupScreen> {
     final isDesktop = size.width > 900;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: Row(
         children: [
           // LEFT SIDE: Branding / Illustration (Desktop only)
@@ -196,9 +197,16 @@ class _SignupScreenState extends State<SignupScreen> {
           Expanded(
             flex: 1,
             child: Container(
-              color: AppTheme.backgroundBeige,
-              child: Center(
-                child: SingleChildScrollView(
+              color: theme.colorScheme.surface,
+              child: Stack(
+                children: [
+                  Positioned(
+                    top: 16,
+                    right: 16,
+                    child: const ThemeToggleIconButton(),
+                  ),
+                  Center(
+                    child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 32),
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 400),
@@ -375,7 +383,9 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                 ),
               ),
-            ),
+            ],
+          ),
+        ),
           ),
         ],
       ),

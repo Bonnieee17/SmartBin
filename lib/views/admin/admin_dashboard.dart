@@ -10,7 +10,6 @@ import 'widgets/summary_card.dart';
 import 'widgets/user_table.dart';
 import 'widgets/waste_chart_placeholder.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import '../../models/voucher_model.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -26,21 +25,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
   int _selectedIndex = 0;
 
   final _productionUrlController = TextEditingController(text: AppConstants.baseUrl);
-
-  // Voucher
-  final _voucherNameController =
-  TextEditingController(text: "Printing Credit");
-  final _voucherPointsController =
-  TextEditingController(text: "100");
-
-  String _qrData = "voucher:Printing Credit:100";
-
-  // PSITS Office Voucher Verifier
-  final _verifyCodeController = TextEditingController();
-  VoucherModel? _foundVoucher;
-  bool _isSearchingVoucher = false;
-  String? _voucherSearchError;
-  String? _voucherSearchSuccess;
 
   // Hardware simulator
   String _simQrData = "";
@@ -74,9 +58,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
   @override
   void dispose() {
     _productionUrlController.dispose();
-    _voucherNameController.dispose();
-    _voucherPointsController.dispose();
-    _verifyCodeController.dispose();
     super.dispose();
   }
 
@@ -86,8 +67,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
     setState(() {
       _productionUrlController.text = AppConstants.baseUrl;
     });
-
-    _updateQr();
   }
 
   Future<void> _saveSettings() async {
@@ -98,14 +77,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final useDrawer = screenWidth < 1000;
+    final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundBeige,
+      backgroundColor: theme.scaffoldBackgroundColor,
 
       appBar: useDrawer
           ? AppBar(
         title: const Text("SmartBin Admin"),
-        backgroundColor: AppTheme.primaryGreen,
+        backgroundColor: theme.appBarTheme.backgroundColor,
         foregroundColor: Colors.white,
       )
           : null,
@@ -211,16 +191,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       Icons.delete_outline,
                       "Bin Status",
                     ),
-                    _buildSidebarItem(
-                      7,
-                      Icons.qr_code_2_outlined,
-                      "Vouchers",
-                    ),
-                    _buildSidebarItem(
-                      8,
-                      Icons.phone_android,
-                      "App Download",
-                    ),
                   ],
                 ),
               ),
@@ -285,12 +255,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
       case 6:
         return _buildBinsMonitoring();
 
-      case 7:
-        return _buildVoucherGenerator();
-
-      case 8:
-        return _buildAppDownloadView();
-
       default:
         return Center(
           child: Text(
@@ -302,523 +266,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
         );
     }
-  }
-
-  // ============================================================
-  // VOUCHER GENERATOR
-  // ============================================================
-
-  Widget _buildAppDownloadView() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isMobile = screenWidth < 600;
-
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(isMobile ? 20 : 40),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "SmartBin Mobile App Download",
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            "Scan the QR code below using any mobile device to download and install the official SmartBin release APK.",
-            style: TextStyle(color: Colors.grey),
-          ),
-          const SizedBox(height: 32),
-          Center(
-            child: Container(
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.grey.withOpacity(0.15)),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 15, offset: const Offset(0, 5)),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.phone_android, size: 48, color: AppTheme.primaryGreen),
-                  const SizedBox(height: 16),
-                  const Text(
-                    "Scan to Download APK",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 24),
-                  QrImageView(
-                    data: "https://tinyurl.com/mt9hbmj8",
-                    version: QrVersions.auto,
-                    size: 220.0,
-                    backgroundColor: Colors.white,
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    "https://tinyurl.com/mt9hbmj8",
-                    style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w500),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVoucherGenerator() {
-    final screenWidth =
-        MediaQuery.of(context).size.width;
-
-    final isMobile = screenWidth < 600;
-
-    return SingleChildScrollView(
-      padding:
-      EdgeInsets.all(isMobile ? 20 : 40),
-      child: Column(
-        crossAxisAlignment:
-        CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "Voucher Generator & PSITS Claim Verifier",
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-
-          const SizedBox(height: 8),
-
-          const Text(
-            "Verify SmartBin digital unique identifiers, process PSITS Office voucher redemptions, or generate QR vouchers.",
-            style: TextStyle(
-              color: Colors.grey,
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // PSITS OFFICE CLAIM VERIFIER CARD
-          _buildPsitsClaimVerifier(),
-
-          const SizedBox(height: 40),
-
-          if (screenWidth > 900)
-            Row(
-              crossAxisAlignment:
-              CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _buildVoucherInputs(),
-                ),
-
-                const SizedBox(width: 48),
-
-                Expanded(
-                  child: _buildVoucherDisplay(),
-                ),
-              ],
-            )
-          else
-            Column(
-              children: [
-                _buildVoucherInputs(),
-                const SizedBox(height: 40),
-                _buildVoucherDisplay(),
-              ],
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPsitsClaimVerifier() {
-    return Container(
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: Colors.grey.withOpacity(0.15)),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryGreen.withOpacity(0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.verified_user, color: AppTheme.primaryGreen),
-              ),
-              const SizedBox(width: 12),
-              const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("PSITS Office Voucher Verifier", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  Text("Verify student unique identifiers & mark claims as redeemed at PSITS Office", style: TextStyle(color: Colors.grey, fontSize: 12)),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _verifyCodeController,
-                  decoration: InputDecoration(
-                    labelText: "Enter SmartBin Digital Unique Identifier (e.g. SB-UID-XXXXXX)",
-                    prefixIcon: const Icon(Icons.qr_code),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                  ),
-                  onSubmitted: (_) => _searchAndVerifyVoucher(),
-                ),
-              ),
-              const SizedBox(width: 12),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryGreen,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-                onPressed: _isSearchingVoucher ? null : _searchAndVerifyVoucher,
-                icon: const Icon(Icons.search),
-                label: const Text("Verify Pass"),
-              ),
-            ],
-          ),
-          if (_voucherSearchError != null) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(12)),
-              child: Row(
-                children: [
-                  const Icon(Icons.error_outline, color: Colors.red, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(_voucherSearchError!, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 13))),
-                ],
-              ),
-            ),
-          ],
-          if (_voucherSearchSuccess != null) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(12)),
-              child: Row(
-                children: [
-                  const Icon(Icons.check_circle_outline, color: Colors.green, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(_voucherSearchSuccess!, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 13))),
-                ],
-              ),
-            ),
-          ],
-          if (_foundVoucher != null) ...[
-            const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppTheme.backgroundBeige,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppTheme.primaryGreen.withOpacity(0.3)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text("Code: ${_foundVoucher!.code}", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryGreen)),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: _foundVoucher!.isClaimed ? Colors.blue.shade100 : (_foundVoucher!.isExpired ? Colors.red.shade100 : Colors.green.shade100),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          _foundVoucher!.isClaimed ? "CLAIMED" : (_foundVoucher!.isExpired ? "EXPIRED" : "ACTIVE (VALID 3 DAYS)"),
-                          style: TextStyle(
-                            color: _foundVoucher!.isClaimed ? Colors.blue.shade900 : (_foundVoucher!.isExpired ? Colors.red.shade900 : Colors.green.shade900),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Divider(height: 20),
-                  Text("Reward Name: ${_foundVoucher!.rewardName}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  Text("Eco Points Spent: ${_foundVoucher!.pointsCost} pts", style: const TextStyle(fontSize: 13)),
-                  Text("Claim Location: ${_foundVoucher!.claimLocation}", style: const TextStyle(fontSize: 13)),
-                  Text("Validity Status: ${_foundVoucher!.formattedRemainingTime}", style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 16),
-                  if (!_foundVoucher!.isClaimed && !_foundVoucher!.isExpired)
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryGreen,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 46),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      onPressed: _markAsClaimedInOffice,
-                      icon: const Icon(Icons.check_circle),
-                      label: const Text("MARK AS CLAIMED AT PSITS OFFICE", style: TextStyle(fontWeight: FontWeight.bold)),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Future<void> _searchAndVerifyVoucher() async {
-    final code = _verifyCodeController.text.trim();
-    if (code.isEmpty) return;
-
-    setState(() {
-      _isSearchingVoucher = true;
-      _voucherSearchError = null;
-      _voucherSearchSuccess = null;
-      _foundVoucher = null;
-    });
-
-    try {
-      final vouchers = await _databaseService.getAllVouchers();
-      final cleanCode = code.toUpperCase();
-      final match = vouchers.firstWhere(
-        (v) => v.code.toUpperCase() == cleanCode || v.id.toUpperCase() == cleanCode,
-        orElse: () => throw Exception("No voucher ticket found with identifier '$code'."),
-      );
-
-      setState(() {
-        _foundVoucher = match;
-      });
-    } catch (e) {
-      setState(() {
-        _voucherSearchError = e.toString().replaceAll("Exception: ", "");
-      });
-    } finally {
-      setState(() {
-        _isSearchingVoucher = false;
-      });
-    }
-  }
-
-  Future<void> _markAsClaimedInOffice() async {
-    if (_foundVoucher == null) return;
-
-    try {
-      final updated = await _databaseService.claimVoucherInOffice(_foundVoucher!.code);
-      setState(() {
-        _foundVoucher = updated;
-        _voucherSearchSuccess = "Voucher ${_foundVoucher!.code} successfully marked as CLAIMED at PSITS Office!";
-      });
-    } catch (e) {
-      setState(() {
-        _voucherSearchError = e.toString().replaceAll("Exception: ", "");
-      });
-    }
-  }
-
-  Widget _buildVoucherInputs() {
-    return Container(
-      padding: const EdgeInsets.all(32),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius:
-        BorderRadius.circular(28),
-        border: Border.all(
-          color: Colors.grey.withOpacity(0.1),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment:
-        CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "Voucher Details",
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          TextField(
-            controller: _voucherNameController,
-            decoration:
-            const InputDecoration(
-              labelText: "Voucher Name",
-              hintText: "e.g. Printing Credit",
-            ),
-            onChanged: (_) => _updateQr(),
-          ),
-
-          const SizedBox(height: 20),
-
-          TextField(
-            controller: _voucherPointsController,
-            keyboardType:
-            TextInputType.number,
-            decoration:
-            const InputDecoration(
-              labelText: "Points Value",
-              hintText: "Max 1000",
-            ),
-            onChanged: (_) => _updateQr(),
-          ),
-
-          const SizedBox(height: 12),
-
-          const Text(
-            "Note: 10 Points = ₱1.00 Peso. Maximum 1000 points per voucher.",
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey,
-              fontStyle: FontStyle.italic,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _updateQr() {
-    int pts =
-        int.tryParse(
-          _voucherPointsController.text,
-        ) ??
-            0;
-
-    if (pts > 1000) {
-      pts = 1000;
-    }
-
-    final baseUrl = _productionUrlController.text.trim();
-
-    if (!mounted) return;
-
-    setState(() {
-      _qrData =
-      "${AppConstants.claimPage}?voucher=${Uri.encodeComponent(_voucherNameController.text.trim())}&cost=$pts";
-    });
-  }
-
-  Widget _buildVoucherDisplay() {
-    int pts =
-        int.tryParse(
-          _voucherPointsController.text,
-        ) ??
-            0;
-
-    if (pts > 1000) {
-      pts = 1000;
-    }
-
-    final pesos = pts / 10.0;
-
-    return Container(
-      padding: const EdgeInsets.all(40),
-      decoration: BoxDecoration(
-        color: AppTheme.primaryGreen,
-        borderRadius:
-        BorderRadius.circular(32),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primaryGreen
-                .withOpacity(0.3),
-            blurRadius: 20,
-            offset:
-            const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding:
-            const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius:
-              BorderRadius.circular(20),
-            ),
-            child: QrImageView(
-              data: _qrData,
-              version: QrVersions.auto,
-              size: 240,
-              gapless: false,
-            ),
-          ),
-
-          const SizedBox(height: 32),
-
-          Text(
-            _voucherNameController.text.isEmpty
-                ? "Untitled Voucher"
-                : _voucherNameController.text,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-
-          const SizedBox(height: 8),
-
-          Text(
-            "VALUE: ₱${pesos.toStringAsFixed(2)}",
-            style: const TextStyle(
-              color: AppTheme.secondarySage,
-              fontSize: 28,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-
-          const SizedBox(height: 8),
-
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              _qrData,
-              style: const TextStyle(
-                color: Colors.white38,
-                fontSize: 10,
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 4),
-
-          Text(
-            "Cost: $pts Eco Points",
-            style: TextStyle(
-              color:
-              Colors.white.withOpacity(0.7),
-              fontSize: 14,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   // ============================================================
@@ -1051,10 +498,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
           try {
             // Create a REAL unique reward session in the database
             // This is what the physical hardware will eventually do
+            final userId = _authService.currentUser?.id ?? '00000000-0000-0000-0000-000000000000';
             final token = await _databaseService.createRewardSession(
-              binId: "BIN-001",
+              userId: userId,
               points: pts,
-              wasteType: type,
             );
 
             if (mounted) {
@@ -1866,7 +1313,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                                 context,
                                                 true,
                                               ),
-                                          child:
+                                           child:
                                           const Text(
                                             "Reset Now",
                                             style:

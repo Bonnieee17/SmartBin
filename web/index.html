@@ -18,17 +18,26 @@
     }
     #loading {
       text-align: center;
-      transition: opacity 0.3s ease-out;
+      transition: opacity 0.15s ease-out;
     }
     .fade-out {
       opacity: 0;
     }
   </style>
+  <script>
+    // Prevent white flash on startup by applying saved theme instantly
+    try {
+      if (localStorage.getItem('flutter.darkMode') === 'true') {
+        document.documentElement.style.backgroundColor = '#121212';
+        document.write('<style>body { background-color: #121212 !important; color: #ffffff !important; }</style>');
+      }
+    } catch(e) {}
+  </script>
 </head>
 <body>
   <div id="loading">
-    <img src="favicon.png" style="width: 100px; height: 100px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); margin-bottom: 20px;">
-    <div style="color: #2e7d32; font-family: sans-serif; font-weight: bold; letter-spacing: 2px;">SMARTBIN LOADING...</div>
+    <img src="favicon.png" style="width: 80px; height: 80px; border-radius: 18px; box-shadow: 0 8px 24px rgba(0,0,0,0.1); margin-bottom: 14px;">
+    <div style="color: #2e7d32; font-family: sans-serif; font-weight: bold; letter-spacing: 2px; font-size: 13px;">SMARTBIN</div>
   </div>
   <script src="flutter_bootstrap.js" async></script>
   <script>
@@ -40,7 +49,7 @@
             var loading = document.getElementById('loading');
             if (loading) {
               loading.classList.add('fade-out');
-              setTimeout(() => loading.remove(), 300);
+              setTimeout(() => loading.remove(), 150);
             }
             await appRunner.runApp();
           }

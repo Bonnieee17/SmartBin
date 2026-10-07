@@ -6,6 +6,8 @@ import '../../core/theme/theme_provider.dart';
 import '../../core/providers/language_provider.dart';
 import '../../services/auth_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/theme_toggle_button.dart';
+import '../psits/psits_dashboard_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -53,31 +55,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _nameController.text = data['full_name'] ?? "";
         });
       } catch (e) {}
-    }
-  }
-
-  Future<void> _updateName() async {
-    if (_nameController.text.trim().isEmpty) return;
-    setState(() => _isUpdating = true);
-    try {
-      final user = _authService.currentUser;
-      if (user != null) {
-        final newName = _nameController.text.trim();
-        await _supabase.from('users').upsert({
-          'id': user.id,
-          'full_name': newName,
-          'student_id': user.userMetadata?['student_id'],
-        });
-        await _supabase.auth.updateUser(UserAttributes(data: {'full_name': newName}));
-        if (mounted) {
-          final lp = Provider.of<LanguageProvider>(context, listen: false);
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(lp.translate("update_profile"))));
-        }
-      }
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: ${e.toString()}")));
-    } finally {
-      if (mounted) setState(() => _isUpdating = false);
     }
   }
 
@@ -446,21 +423,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     languageProvider.translate("settings_title"),
                     style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
                   ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.admin_panel_settings_outlined),
+                    tooltip: "PSITS Dashboard",
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const PsitsDashboardScreen()),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 4),
+                  const ThemeToggleIconButton(),
                 ],
               ),
               const SizedBox(height: 32),
-              _buildSectionHeader(languageProvider.translate("edit_profile")),
-              _buildInputCard(languageProvider.translate("full_name"), _nameController, languageProvider.translate("full_name")),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _isUpdating ? null : _updateName,
-                  child: _isUpdating ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : Text(languageProvider.translate("update_profile")),
-                ),
-              ),
-
-              const SizedBox(height: 40),
               _buildSectionHeader(languageProvider.translate("change_password")),
               _buildPasswordInput(
                 languageProvider.translate("new_password"),
@@ -495,7 +473,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
               // --- APPEARANCE ---
               _buildSettingsGroup(Icons.palette_outlined, languageProvider.translate("appearance"), [
-                _buildSwitchItem(languageProvider.translate("dark_mode"), themeProvider.isDarkMode, (v) => themeProvider.toggleTheme()),
                 _buildSubItem(languageProvider.translate("text_size"), () => _showFontSizeDialog(languageProvider, themeProvider)),
               ]),
 
@@ -533,13 +510,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ]),
 
               const SizedBox(height: 40),
-              Center(
-                child: TextButton(
-                  onPressed: () {},
-                  child: Text(languageProvider.translate("delete_account"), style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
-                ),
-              ),
-              const SizedBox(height: 40),
             ],
           ),
         ),
@@ -554,23 +524,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
     );
   }
-
-  Widget _buildInputCard(String label, TextEditingController controller, String hint) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: theme.colorScheme.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1))),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold)),
-          TextField(controller: controller, decoration: InputDecoration(hintText: hint, border: InputBorder.none, isDense: true)),
-        ],
-      ),
-    );
-  }
-
-
 
   Widget _buildPasswordInput(String label, TextEditingController controller, bool obscureText, VoidCallback onToggle) {
     final theme = Theme.of(context);

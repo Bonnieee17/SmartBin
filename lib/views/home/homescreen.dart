@@ -7,6 +7,8 @@ import '../../services/auth_service.dart';
 import '../../services/database_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/providers/language_provider.dart';
+import '../../core/widgets/theme_toggle_button.dart';
+import '../psits/psits_dashboard_screen.dart';
 import 'widgets/claim_points_dialog.dart';
 import '../../services/deep_link_service.dart';
 
@@ -76,13 +78,13 @@ class _HomeScreenState extends State<HomeScreen> {
       if (user == null) throw Exception("Please login to claim rewards.");
 
       final databaseService = DatabaseService();
-      final session = await databaseService.claimRewardByToken(token, user.id);
+      await databaseService.claimRewardByToken(token);
 
       if (mounted) {
         Navigator.pop(context); // Close loading
         _showSuccessDialog(
-          session['points'],
-          session['waste_type'],
+          50,
+          'Reward',
         );
       }
     } catch (e) {
@@ -403,7 +405,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 final nextPoints = _getNextLevelPoints(points);
 
                 return FutureBuilder<List<Map<String, dynamic>>>(
-                  future: DatabaseService().getLocalDisposalHistory(userId),
+                  future: DatabaseService().getLocalDisposalHistory(),
                   builder: (context, historySnapshot) {
                     final history = historySnapshot.data ?? [];
                     final itemsRecycled = history.length;
@@ -480,35 +482,47 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ),
-                if (screenWidth > 900)
-                  Row(
-                    children: [
-                      Stack(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.notifications_none_outlined, size: 28), 
-                            onPressed: () => Navigator.pushNamed(context, "/notifications"),
-                          ),
-                          if (itemsRecycled > 0)
-                            Positioned(
-                              right: 12,
-                              top: 12,
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                                constraints: const BoxConstraints(minWidth: 8, minHeight: 8),
-                              ),
+                Row(
+                  children: [
+                    Stack(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.notifications_none_outlined, size: 28), 
+                          onPressed: () => Navigator.pushNamed(context, "/notifications"),
+                        ),
+                        if (itemsRecycled > 0)
+                          Positioned(
+                            right: 12,
+                            top: 12,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                              constraints: const BoxConstraints(minWidth: 8, minHeight: 8),
                             ),
-                        ],
-                      ),
-                      const SizedBox(width: 16),
+                          ),
+                      ],
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.admin_panel_settings_outlined),
+                      tooltip: "PSITS Dashboard",
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const PsitsDashboardScreen()),
+                        );
+                      },
+                    ),
+                    const ThemeToggleIconButton(),
+                    if (screenWidth > 900) ...[
+                      const SizedBox(width: 8),
                       CircleAvatar(
                         radius: 24,
                         backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
                         child: Text(fullName.isNotEmpty ? fullName[0] : "U", style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold, fontSize: 18)),
                       ),
                     ],
-                  ),
+                  ],
+                ),
               ],
             ),
             const SizedBox(height: 40),

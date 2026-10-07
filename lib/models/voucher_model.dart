@@ -2,7 +2,7 @@ import 'package:intl/intl.dart';
 
 class VoucherModel {
   final String id;
-  final String code; // SmartBin Unique Digital Identifier (e.g. SB-UID-98A72B)
+  final String code; // SmartBin Unique Digital Identifier (e.g. SB-VCH-2026-XXXX)
   final String userId;
   final String? userName;
   final String rewardName;
@@ -11,7 +11,7 @@ class VoucherModel {
   final DateTime createdAt;
   final DateTime expiresAt; // createdAt + 3 days validity
   final DateTime? claimedAt;
-  final String rawStatus; // "pending", "claimed", "expired"
+  final String rawStatus; // "AVAILABLE", "REDEEMED", "EXPIRED", "pending", "claimed"
 
   VoucherModel({
     required this.id,
@@ -24,30 +24,32 @@ class VoucherModel {
     required this.createdAt,
     required this.expiresAt,
     this.claimedAt,
-    this.rawStatus = "pending",
+    this.rawStatus = "AVAILABLE",
   });
 
-  bool get isClaimed => rawStatus == 'claimed';
+  bool get isClaimed => rawStatus.toUpperCase() == 'REDEEMED' || rawStatus.toLowerCase() == 'claimed';
 
   bool get isExpired {
     if (isClaimed) return false;
-    return DateTime.now().isAfter(expiresAt) || rawStatus == 'expired';
+    return DateTime.now().isAfter(expiresAt) || rawStatus.toUpperCase() == 'EXPIRED' || rawStatus.toLowerCase() == 'expired';
   }
 
   String get status {
-    if (isClaimed) return 'claimed';
-    if (isExpired) return 'expired';
-    return 'pending';
+    if (isClaimed) return 'REDEEMED';
+    if (isExpired) return 'EXPIRED';
+    return 'AVAILABLE';
   }
 
   String get statusLabel {
     switch (status) {
+      case 'REDEEMED':
       case 'claimed':
         return 'Claimed at PSITS Office';
+      case 'EXPIRED':
       case 'expired':
         return 'Expired (3-Day Limit Passed)';
       default:
-        return 'Active (Claim at PSITS Office)';
+        return 'Available (Claim at PSITS Office)';
     }
   }
 
@@ -107,9 +109,11 @@ class VoucherModel {
         ? DateTime.parse(json['claimed_at'].toString())
         : null;
 
+    final statusVal = json['status']?.toString() ?? (claimed != null ? 'REDEEMED' : 'AVAILABLE');
+
     return VoucherModel(
       id: json['id']?.toString() ?? '',
-      code: json['code']?.toString() ?? json['id']?.toString() ?? '',
+      code: json['code']?.toString() ?? json['voucher_code']?.toString() ?? json['id']?.toString() ?? '',
       userId: json['user_id']?.toString() ?? '',
       userName: json['user_name']?.toString() ?? (json['users'] is Map ? json['users']['full_name']?.toString() : null),
       rewardName: json['reward_name']?.toString() ?? 'Reward Voucher',
@@ -120,7 +124,7 @@ class VoucherModel {
       createdAt: created,
       expiresAt: expires,
       claimedAt: claimed,
-      rawStatus: json['status']?.toString() ?? (claimed != null ? 'claimed' : 'pending'),
+      rawStatus: statusVal,
     );
   }
 }

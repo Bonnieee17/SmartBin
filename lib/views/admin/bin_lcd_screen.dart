@@ -18,11 +18,10 @@ class _BinLcdScreenState extends State<BinLcdScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF1A1A1A),
-      body: StreamBuilder<List<Map<String, dynamic>>>(
-        stream: _databaseService.getLatestUnclaimedSession(widget.binId),
+      body: FutureBuilder<Map<String, dynamic>?>(
+        future: _databaseService.getLatestUnclaimedSession(widget.binId),
         builder: (context, snapshot) {
-          final sessions = snapshot.data ?? [];
-          final latestSession = sessions.isNotEmpty ? sessions.first : null;
+          final latestSession = snapshot.data;
 
           bool isSessionActive = false;
           if (latestSession != null) {
@@ -50,84 +49,47 @@ class _BinLcdScreenState extends State<BinLcdScreen> {
 
   Widget _buildRewardUI(String qrData, String wasteType, int points, DateTime expiresAt) {
     return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(32),
+      child: Container(
+        width: 320,
+        padding: const EdgeInsets.all(28),
+        decoration: BoxDecoration(
+          color: const Color(0xFF242424),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.green.withValues(alpha: 0.4), width: 2),
+        ),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            const Badge(
-              label: Text("REWARD ACTIVE", style: TextStyle(fontWeight: FontWeight.bold)),
-              backgroundColor: Colors.orange,
-              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              wasteType.toUpperCase(),
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.greenAccent,
-                fontWeight: FontWeight.bold,
-                fontSize: 28,
-                letterSpacing: 2,
-              ),
+            const Text(
+              "REWARD UNLOCKED!",
+              style: TextStyle(color: Colors.green, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.5),
             ),
             const SizedBox(height: 8),
             Text(
-              "+$points ECO POINTS",
-              style: const TextStyle(color: Colors.white70, fontSize: 18, fontWeight: FontWeight.w500),
+              "+$points POINTS",
+              style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900),
             ),
-            const SizedBox(height: 40),
+            Text(
+              "Item: $wasteType",
+              style: const TextStyle(color: Colors.white70, fontSize: 14),
+            ),
+            const SizedBox(height: 20),
             Container(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(30),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.orange.withOpacity(0.4),
-                    blurRadius: 40,
-                    spreadRadius: 10,
-                  ),
-                ],
+                borderRadius: BorderRadius.circular(16),
               ),
               child: QrImageView(
                 data: qrData,
                 version: QrVersions.auto,
-                size: 280,
-                embeddedImage: const AssetImage('assets/images/logo.png'),
-                embeddedImageStyle: const QrEmbeddedImageStyle(size: Size(60, 60)),
+                size: 160.0,
               ),
             ),
-            const SizedBox(height: 40),
-            TweenAnimationBuilder<Duration>(
-              duration: expiresAt.difference(DateTime.now()),
-              tween: Tween(begin: expiresAt.difference(DateTime.now()), end: Duration.zero),
-              onEnd: () => setState(() {}),
-              builder: (context, value, child) {
-                final seconds = value.inSeconds;
-                return Column(
-                  children: [
-                    Text(
-                      "SCAN TO CLAIM IN ${seconds}S",
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: 200,
-                      child: LinearProgressIndicator(
-                        value: seconds / 30,
-                        backgroundColor: Colors.white10,
-                        color: Colors.orange,
-                      ),
-                    ),
-                  ],
-                );
-              },
+            const SizedBox(height: 16),
+            const Text(
+              "Scan to Claim Reward",
+              style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -137,51 +99,39 @@ class _BinLcdScreenState extends State<BinLcdScreen> {
 
   Widget _buildDefaultUI() {
     return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(32),
+      child: Container(
+        width: 320,
+        padding: const EdgeInsets.all(28),
+        decoration: BoxDecoration(
+          color: const Color(0xFF242424),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.white24, width: 1.5),
+        ),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Image.asset('assets/images/logo.png', height: 80, width: 80),
-            const SizedBox(height: 32),
+            const Icon(Icons.qr_code_2, size: 80, color: Colors.green),
+            const SizedBox(height: 16),
             const Text(
-              "READY FOR DISPOSAL",
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 24,
-                letterSpacing: 3,
-              ),
+              "SMARTBIN",
+              style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 2),
             ),
-            const SizedBox(height: 48),
+            const SizedBox(height: 8),
+            const Text(
+              "Scan to Open SmartBin App",
+              style: TextStyle(color: Colors.white70, fontSize: 14),
+            ),
+            const SizedBox(height: 16),
             Container(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(30),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.green.withOpacity(0.2),
-                    blurRadius: 30,
-                    spreadRadius: 5,
-                  ),
-                ],
+                color: Colors.green.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(20),
               ),
-              child: QrImageView(
-                data: AppConstants.downloadPage,
-                version: QrVersions.auto,
-                size: 300,
+              child: const Text(
+                "READY FOR DISPOSAL",
+                style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold),
               ),
-            ),
-            const SizedBox(height: 60),
-            const Text(
-              "SMARTBIN OS v2.0 • STANDBY",
-              style: TextStyle(color: Colors.white24, fontSize: 12, letterSpacing: 2),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              "INSTALL APP TO START EARNING",
-              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
             ),
           ],
         ),

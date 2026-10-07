@@ -12,6 +12,7 @@ import '../../services/auth_service.dart';
 import '../../services/database_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/providers/language_provider.dart';
+import '../../core/widgets/theme_toggle_button.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -343,6 +344,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                const ThemeToggleIconButton(),
               ],
             ),
             SizedBox(height: isMobile ? 24 : 32),

@@ -174,7 +174,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       builder: (context, userSnapshot) {
                         final userId = userSnapshot.data ?? 'student_local';
                         return FutureBuilder<List<Map<String, dynamic>>>(
-                          future: _databaseService.getLocalDisposalHistory(userId),
+                          future: _databaseService.getLocalDisposalHistory(),
                           builder: (context, localSnapshot) {
                             if (localSnapshot.connectionState == ConnectionState.waiting) {
                               return const Center(child: CircularProgressIndicator());
